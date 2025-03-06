@@ -1,43 +1,8 @@
-Hand Signal Recognition
+Features to Implement
 
-Implement MediaPipe integration for hand tracking
-Add a camera module to capture and process hand signals
-Create feedback system for user's hand positioning
-Firebase Integration
+1.) Train Model with different Architectures 
+2.) Connect login with ui
+3.) Display onboard page first if user is not logged in and let him in after getting his mail, name, profile picture
+4.) Fix Dark Mode Bug 
 
-Your sign-in UI exists in signin_view.dart, but it appears to be using mock authentication
-Implement proper Firebase Auth integration
-Set up Firestore/Realtime Database for user profiles and progress tracking
-Complete Learning Path Structure
-
-Your learning_path_screen.dart has basic structure but needs:
-Dynamic content loading from backend
-Actual lesson content beyond the mock data
-Progress tracking that persists
-Technical Foundation
-State Management
-
-Implement a state management solution (Provider, Bloc, or Riverpod)
-Replace hardcoded data with proper state management
-Move authentication state to a global provider
-Error Handling
-
-Add proper error handling for network requests
-Implement graceful degradation when services aren't available
-User-friendly error messages
-Testing
-
-Create unit tests for core business logic
-Add widget tests for key UI components
-Implement integration tests for critical user flows
-Enhanced Features
-Offline Support
-
-Implement caching system for lesson content
-Allow practice sessions without internet connection
-Queue up progress updates for when connection is restored
-Analytics & Monitoring
-
-Add Firebase Analytics to track user engagement
-Implement error logging and crash reporting
-Create performance monitoring for critical app functions
+To be completed within 13/03/2025
