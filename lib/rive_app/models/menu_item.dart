@@ -46,7 +46,7 @@ class MenuItemModel {
 
   static List<MenuItemModel> menuItems3 = [
     MenuItemModel(
-      title: "Dark Mode",
+      title: "Dev Mode",
       riveIcon:
           TabItem(stateMachine: "SETTINGS_Interactivity", artboard: "SETTINGS"),
     ),

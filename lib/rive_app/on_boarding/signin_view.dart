@@ -262,9 +262,9 @@ class _SignInViewState extends State<SignInView> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
-                                    child: Row(
+                                    child: const Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
-                                      children: const [
+                                      children: [
                                         Text(
                                           "Sign In",
                                           style: TextStyle(

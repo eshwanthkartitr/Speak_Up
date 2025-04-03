@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:provider/provider.dart';
 
 class SignItem {
   final String name;
@@ -168,8 +170,12 @@ class _SearchScreenState extends State<SearchScreen> {
     final mediaQuery = MediaQuery.of(context);
     final safePadding = mediaQuery.padding;
     
+    // Get theme provider to access dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Container(
-      color: RiveAppTheme.background,
+      color: RiveAppTheme.getBackgroundColor(isDarkMode),
       padding: EdgeInsets.only(
         top: safePadding.top + 16, // Extra padding to avoid top menu button
         bottom: safePadding.bottom,
@@ -179,7 +185,7 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           // Custom App Bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(0,50,40,10) ,
             child: Row(
               children: [
                 const SizedBox(width: 40), // Space for the menu button
@@ -190,7 +196,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       style: TextStyle(
                         fontSize: 20, 
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: RiveAppTheme.getTextColor(isDarkMode),
                       ),
                     ),
                   ),
@@ -208,7 +214,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 Icon(
                   Icons.favorite,
-                  color: _showFavoritesOnly ? RiveAppTheme.accentColor : Colors.grey[400],
+                  color: _showFavoritesOnly ? RiveAppTheme.accentColor : RiveAppTheme.getTextSecondaryColor(isDarkMode),
                   size: 20,
                 ),
               ],
@@ -220,7 +226,7 @@ class _SearchScreenState extends State<SearchScreen> {
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: RiveAppTheme.getInputBackgroundColor(isDarkMode),
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
@@ -234,11 +240,11 @@ class _SearchScreenState extends State<SearchScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search signs...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                hintStyle: TextStyle(color: RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.6)),
+                prefixIcon: Icon(Icons.search, color: RiveAppTheme.getTextSecondaryColor(isDarkMode)),
                 suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: Icon(Icons.clear, color: Colors.grey[400]),
+                      icon: Icon(Icons.clear, color: RiveAppTheme.getTextSecondaryColor(isDarkMode)),
                       onPressed: () {
                         _searchController.clear();
                       },
@@ -246,6 +252,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   : null,
                 border: InputBorder.none,
               ),
+              style: TextStyle(color: RiveAppTheme.getTextColor(isDarkMode)),
             ),
           ),
           
@@ -270,16 +277,16 @@ class _SearchScreenState extends State<SearchScreen> {
                         _selectCategory(category);
                       }
                     },
-                    backgroundColor: Colors.white,
+                    backgroundColor: RiveAppTheme.getCardColor(isDarkMode),
                     selectedColor: RiveAppTheme.accentColor.withOpacity(0.2),
                     labelStyle: TextStyle(
-                      color: isSelected ? RiveAppTheme.accentColor : Colors.black87,
+                      color: isSelected ? RiveAppTheme.accentColor : RiveAppTheme.getTextColor(isDarkMode),
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                        color: isSelected ? RiveAppTheme.accentColor : Colors.grey[300]!,
+                        color: isSelected ? RiveAppTheme.accentColor : RiveAppTheme.getDividerColor(isDarkMode),
                       ),
                     ),
                   ),
@@ -294,7 +301,7 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Text(
               '${_filteredSigns.length} ${_filteredSigns.length == 1 ? 'sign' : 'signs'} found',
               style: TextStyle(
-                color: Colors.grey[700],
+                color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -303,13 +310,13 @@ class _SearchScreenState extends State<SearchScreen> {
           // Search results
           Expanded(
             child: _filteredSigns.isEmpty
-                ? _buildEmptyState()
+                ? _buildEmptyState(isDarkMode)
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 80), // Bottom padding for tab bar
                     itemCount: _filteredSigns.length,
                     itemBuilder: (context, index) {
                       final sign = _filteredSigns[index];
-                      return _buildSignItem(sign, index);
+                      return _buildSignItem(sign, index, isDarkMode);
                     },
                   ),
           ),
@@ -318,7 +325,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
   
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDarkMode) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -326,7 +333,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Icon(
             Icons.search_off_rounded,
             size: 80,
-            color: Colors.grey[300],
+            color: RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -334,7 +341,7 @@ class _SearchScreenState extends State<SearchScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.grey[600],
+              color: RiveAppTheme.getTextColor(isDarkMode),
             ),
           ),
           const SizedBox(height: 8),
@@ -343,7 +350,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ? 'Try selecting a different category'
                 : 'Try a different search term',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
             ),
           ),
         ],
@@ -351,7 +358,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
   
-  Widget _buildSignItem(SignItem sign, int index) {
+  Widget _buildSignItem(SignItem sign, int index, bool isDarkMode) {
     Color difficultyColor;
     
     switch (sign.difficulty) {
@@ -368,7 +375,7 @@ class _SearchScreenState extends State<SearchScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RiveAppTheme.getCardColor(isDarkMode),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -414,9 +421,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       children: [
                         Text(
                           sign.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
+                            color: RiveAppTheme.getTextColor(isDarkMode),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -441,7 +449,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     Text(
                       sign.description,
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
                         fontSize: 14,
                       ),
                     ),
@@ -449,7 +457,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     Text(
                       sign.category,
                       style: TextStyle(
-                        color: Colors.grey[500],
+                        color: RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.7),
                         fontSize: 12,
                       ),
                     ),
@@ -461,7 +469,7 @@ class _SearchScreenState extends State<SearchScreen> {
               IconButton(
                 icon: Icon(
                   sign.favorite ? Icons.favorite : Icons.favorite_border,
-                  color: sign.favorite ? Colors.red : Colors.grey[400],
+                  color: sign.favorite ? Colors.red : RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.5),
                 ),
                 onPressed: () => _toggleFavorite(index),
               ),

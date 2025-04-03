@@ -3,6 +3,8 @@ import 'package:flutter_samples/rive_app/components/hcard.dart';
 import 'package:flutter_samples/rive_app/components/vcard.dart';
 import 'package:flutter_samples/rive_app/models/courses.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_samples/rive_app/screens/learning_path_screen.dart';
 
@@ -25,25 +27,29 @@ class _HomeTabViewState extends State<HomeTabView> {
 
   @override
   Widget build(BuildContext context) {
+    // Get ThemeProvider instance
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: BoxDecoration(
-          color: RiveAppTheme.background,
+          color: RiveAppTheme.getBackgroundColor(isDarkMode),
           borderRadius: BorderRadius.circular(30),
         ),
         child: SingleChildScrollView(
           padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 60,
+              top: MediaQuery.of(context).padding.top + 80,
               bottom: MediaQuery.of(context).padding.bottom + 70),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // User stats and gamification elements
-              _buildUserStats(),
+              _buildUserStats(isDarkMode),
 
               // Learning Path button
-              _buildLearningPathButton(),
+              _buildLearningPathButton(isDarkMode),
 
               const SizedBox(height: 20),
 
@@ -51,15 +57,20 @@ class _HomeTabViewState extends State<HomeTabView> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
-                  children: const [
-                    FaIcon(FontAwesomeIcons.graduationCap, size: 24),
-                    SizedBox(width: 10),
+                  children: [
+                    FaIcon(
+                      FontAwesomeIcons.graduationCap,
+                      size: 24,
+                      color: RiveAppTheme.getTextColor(isDarkMode),
+                    ),
+                    const SizedBox(width: 10),
                     Text(
                       "Must Learn",
                       style: TextStyle(
                         fontSize: 28,
                         fontFamily: "Poppins",
                         fontWeight: FontWeight.w600,
+                        color: RiveAppTheme.getTextColor(isDarkMode),
                       ),
                     ),
                   ],
@@ -89,16 +100,20 @@ class _HomeTabViewState extends State<HomeTabView> {
                 padding: const EdgeInsets.only(
                     left: 20, right: 20, bottom: 20, top: 10),
                 child: Row(
-                  children: const [
-                    FaIcon(FontAwesomeIcons.fire,
-                        size: 22, color: Colors.deepOrange),
-                    SizedBox(width: 10),
+                  children: [
+                    FaIcon(
+                      FontAwesomeIcons.fire,
+                      size: 22,
+                      color: isDarkMode ? Colors.deepOrange[300] : Colors.deepOrange,
+                    ),
+                    const SizedBox(width: 10),
                     Text(
                       "Daily Challenges",
                       style: TextStyle(
                         fontSize: 20,
                         fontFamily: "Poppins",
                         fontWeight: FontWeight.w600,
+                        color: RiveAppTheme.getTextColor(isDarkMode),
                       ),
                     ),
                   ],
@@ -118,7 +133,7 @@ class _HomeTabViewState extends State<HomeTabView> {
               // AI Conversation section
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                child: _buildAIConversationCard(),
+                child: _buildAIConversationCard(isDarkMode),
               ),
             ],
           ),
@@ -128,20 +143,22 @@ class _HomeTabViewState extends State<HomeTabView> {
   }
 
   // User stats bar with gamification elements
-  Widget _buildUserStats() {
+  Widget _buildUserStats(bool isDarkMode) {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade700, Colors.indigo.shade800],
+          colors: isDarkMode 
+              ? [Colors.blue.shade900, Colors.indigo.shade900]
+              : [Colors.blue.shade700, Colors.indigo.shade800],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.shade700.withOpacity(0.3),
+            color: (isDarkMode ? Colors.blue.shade900 : Colors.blue.shade700).withOpacity(0.3),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -230,7 +247,7 @@ class _HomeTabViewState extends State<HomeTabView> {
   }
 
   // Learning Path button
-  Widget _buildLearningPathButton() {
+  Widget _buildLearningPathButton(bool isDarkMode) {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: InkWell(
@@ -245,14 +262,16 @@ class _HomeTabViewState extends State<HomeTabView> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.green.shade400, Colors.teal.shade600],
+              colors: isDarkMode
+                  ? [Colors.green.shade800, Colors.teal.shade900]
+                  : [Colors.green.shade400, Colors.teal.shade600],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.teal.shade300.withOpacity(0.3),
+                color: (isDarkMode ? Colors.teal.shade900 : Colors.teal.shade300).withOpacity(0.3),
                 blurRadius: 10,
                 spreadRadius: 0,
                 offset: const Offset(0, 4),
@@ -274,10 +293,10 @@ class _HomeTabViewState extends State<HomeTabView> {
                 ),
               ),
               const SizedBox(width: 16),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       "Learning Path",
                       style: TextStyle(
@@ -310,19 +329,21 @@ class _HomeTabViewState extends State<HomeTabView> {
   }
 
   // AI Conversation card
-  Widget _buildAIConversationCard() {
+  Widget _buildAIConversationCard(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.purple.shade400, Colors.deepPurple.shade600],
+          colors: isDarkMode
+              ? [Colors.purple.shade900, Colors.deepPurple.shade900]
+              : [Colors.purple.shade400, Colors.deepPurple.shade600],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.deepPurple.shade300.withOpacity(0.3),
+            color: (isDarkMode ? Colors.deepPurple.shade900 : Colors.deepPurple.shade300).withOpacity(0.3),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -368,9 +389,8 @@ class _HomeTabViewState extends State<HomeTabView> {
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  foregroundColor: Colors.deepPurple,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  foregroundColor: isDarkMode ? Colors.deepPurple.shade300 : Colors.deepPurple,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -389,18 +409,19 @@ class _HomeTabViewState extends State<HomeTabView> {
   }
 
   // Floating action button for real-time translation
-  Widget _buildTranslateButton() {
+  Widget _buildTranslateButton(bool isDarkMode) {
     return FloatingActionButton.extended(
       onPressed: () {},
-      backgroundColor: Colors.green.shade600,
+      backgroundColor: isDarkMode ? Colors.green.shade800 : Colors.green.shade600,
       label: const Text(
         "Translate Now",
         style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 16,
+          color: Colors.white,
         ),
       ),
-      icon: const FaIcon(FontAwesomeIcons.language),
+      icon: const FaIcon(FontAwesomeIcons.language, color: Colors.white),
       elevation: 8,
     );
   }

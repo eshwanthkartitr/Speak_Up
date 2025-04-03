@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:provider/provider.dart';
 
 enum NotificationType {
   lesson,
@@ -81,8 +83,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final mediaQuery = MediaQuery.of(context);
     final topPadding = mediaQuery.padding.top;
     
+    // Get theme provider to access dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Container(
-      color: RiveAppTheme.background,
+      color: RiveAppTheme.getBackgroundColor(isDarkMode),
       child: Column(
         children: [
           // Add extra padding at the top to avoid menu button overlap
@@ -94,12 +100,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Notifications',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87
+                    color: RiveAppTheme.getTextColor(isDarkMode)
                   ),
                 ),
                 TextButton(
@@ -118,36 +124,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           // Content area
           Expanded(
             child: _notifications.isEmpty
-                ? _buildEmptyState()
-                : _buildNotificationsList(),
+                ? _buildEmptyState(isDarkMode)
+                : _buildNotificationsList(isDarkMode),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDarkMode) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_none_outlined, size: 80, color: Colors.black26),
+          Icon(
+            Icons.notifications_none_outlined, 
+            size: 80, 
+            color: RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.3)
+          ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No notifications yet',
-            style: TextStyle(fontSize: 18, color: Colors.black45),
+            style: TextStyle(
+              fontSize: 18, 
+              color: RiveAppTheme.getTextColor(isDarkMode)
+            ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'You\'re all caught up!',
-            style: TextStyle(fontSize: 14, color: Colors.black38),
+            style: TextStyle(
+              fontSize: 14, 
+              color: RiveAppTheme.getTextSecondaryColor(isDarkMode)
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationsList() {
+  Widget _buildNotificationsList(bool isDarkMode) {
     return ListView.builder(
       itemCount: _notifications.length,
       // Increase bottom padding to avoid tab bar overlap
@@ -182,8 +198,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
             ),
             color: notification.isRead 
-                ? Colors.white 
-                : RiveAppTheme.accentColor.withOpacity(0.03),
+                ? RiveAppTheme.getCardColor(isDarkMode)
+                : RiveAppTheme.accentColor.withOpacity(isDarkMode ? 0.15 : 0.03),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => _toggleReadStatus(index),
@@ -210,6 +226,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         ? FontWeight.normal 
                                         : FontWeight.bold,
                                     fontSize: 14,
+                                    color: RiveAppTheme.getTextColor(isDarkMode),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -218,7 +235,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 _formatTime(notification.time),
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.black45,
+                                  color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
                                 ),
                               ),
                             ],
@@ -228,7 +245,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             notification.message,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black87,
+                              color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

@@ -120,6 +120,7 @@ class _OnBoardingViewState extends State<OnBoardingView>
                         fontFamily: "Poppins", 
                         fontSize: 36,
                         fontWeight: FontWeight.w600,
+                        color: RiveAppTheme.onboardingText,
                       ),
                       softWrap: true,
                     ),
@@ -129,7 +130,7 @@ class _OnBoardingViewState extends State<OnBoardingView>
                   Text(
                     "Learn Tamil Sign Language the fun way and convert signs to speech instantly with our innovative technology.",
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.7),
+                      color: RiveAppTheme.onboardingText.withOpacity(0.7),
                       fontFamily: "Inter",
                       fontSize: 17,
                     ),
@@ -165,13 +166,14 @@ class _OnBoardingViewState extends State<OnBoardingView>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Icon(Icons.waving_hand_sharp),
+                                Icon(Icons.waving_hand_sharp,color: Colors.black,),
                                 SizedBox(width: 8),
                                 Text(
                                   "Start Learning",
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontFamily: "Inter",
+                                    color: Colors.black,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 )

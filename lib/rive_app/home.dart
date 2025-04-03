@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';  // Add this import for ImageFilter
 import 'package:flutter_samples/rive_app/navigation/side_menu.dart';
 import 'package:rive/rive.dart' hide LinearGradient;
 import 'dart:math' as math;
@@ -8,6 +9,8 @@ import 'package:flutter_samples/rive_app/navigation/custom_tab_bar.dart';
 import 'package:flutter_samples/rive_app/navigation/home_tab_view.dart';
 import 'package:flutter_samples/rive_app/on_boarding/onboarding_view.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_samples/rive_app/assets.dart' as app_assets;
 import 'package:flutter_samples/rive_app/screens/chat_screen.dart';
 import 'package:flutter_samples/rive_app/screens/search_screen.dart';
@@ -16,13 +19,17 @@ import 'package:flutter_samples/rive_app/screens/notifications_screen.dart';
 import 'package:flutter_samples/rive_app/screens/profile_screen.dart';
 
 // Common Tab Scene for the tabs other than 1st one, showing only tab name in center
-Widget commonTabScene(String tabName) {
+Widget commonTabScene(String tabName, bool isDarkMode) {
   return Container(
-      color: RiveAppTheme.background,
+      color: RiveAppTheme.getBackgroundColor(isDarkMode),
       alignment: Alignment.center,
       child: Text(tabName,
-          style: const TextStyle(
-              fontSize: 28, fontFamily: "Poppins", color: Colors.black)));
+          style: TextStyle(
+              fontSize: 28, 
+              fontFamily: "Poppins", 
+              color: RiveAppTheme.getTextColor(isDarkMode)
+          ))
+  );
 }
 
 class RiveAppHome extends StatefulWidget {
@@ -152,13 +159,17 @@ class _RiveAppHomeState extends State<RiveAppHome>
 
   @override
   Widget build(BuildContext context) {
+    // Get theme provider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Scaffold(
       extendBody: true,
       body: Stack(
         children: [
-          // Background
+          // Background - Update to use theme-aware background
           Positioned.fill(
-            child: Container(color: RiveAppTheme.background2),
+            child: Container(color: RiveAppTheme.getBackgroundColor(isDarkMode)),
           ),
           
           // Sidebar with optimized transform
@@ -217,7 +228,7 @@ class _RiveAppHomeState extends State<RiveAppHome>
             ),
           ),
           
-          // Profile button with smoother animation
+          // Profile button with improved styling
           AnimatedBuilder(
             animation: _sidebarAnim,
             builder: (context, child) {
@@ -232,17 +243,46 @@ class _RiveAppHomeState extends State<RiveAppHome>
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(
+                    colors: isDarkMode 
+                        ? [
+                            Colors.grey[800]!.withOpacity(0.9),
+                            Colors.grey[900]!.withOpacity(0.9),
+                          ]
+                        : [
+                            Colors.white.withOpacity(0.9),
+                            Colors.grey[100]!.withOpacity(0.9),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDarkMode
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.black.withOpacity(0.05),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: RiveAppTheme.shadow.withOpacity(0.2),
-                      blurRadius: 5,
-                      offset: const Offset(0, 5),
-                    )
+                      color: isDarkMode
+                          ? Colors.black.withOpacity(0.2)
+                          : Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                    if (!isDarkMode) BoxShadow(
+                      color: Colors.white.withOpacity(0.5),
+                      blurRadius: 12,
+                      spreadRadius: -3,
+                      offset: const Offset(-3, -3),
+                    ),
                   ],
                 ),
-                child: const Icon(Icons.person_outline),
+                child: Icon(
+                  Icons.person_outline,
+                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                  size: 20,
+                ),
               ),
               onTap: () {
                 _presentOnBoarding(true);
@@ -250,7 +290,7 @@ class _RiveAppHomeState extends State<RiveAppHome>
             ),
           ),
           
-          // Menu button with optimized animation
+          // Menu button with improved styling
           RepaintBoundary(
             child: AnimatedBuilder(
               animation: _sidebarAnim,
@@ -266,27 +306,66 @@ class _RiveAppHomeState extends State<RiveAppHome>
               },
               child: GestureDetector(
                 onTap: onMenuPress,
-                child: Hero(  // Use Hero for smooth transition
+                child: Hero(
                   tag: 'menuButton',
                   child: Container(
                     width: 44,
                     height: 44,
                     margin: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(44 / 2),
+                      gradient: LinearGradient(
+                        colors: isDarkMode
+                            ? [
+                                Colors.grey[850]!.withOpacity(0.9),
+                                Colors.grey[900]!.withOpacity(0.9),
+                              ]
+                            : [
+                                Colors.white.withOpacity(0.95),
+                                Colors.grey[100]!.withOpacity(0.95),
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: isDarkMode
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.05),
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: RiveAppTheme.shadow.withOpacity(0.2),
-                          blurRadius: 5,
+                          color: isDarkMode
+                              ? Colors.black.withOpacity(0.3)
+                              : Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
                           offset: const Offset(0, 5),
-                        )
+                        ),
+                        if (!isDarkMode) BoxShadow(
+                          color: Colors.white.withOpacity(0.8),
+                          blurRadius: 12,
+                          spreadRadius: -2,
+                          offset: const Offset(-2, -2),
+                        ),
                       ],
                     ),
-                    child: RiveAnimation.asset(
-                      app_assets.menuButtonRiv,
-                      stateMachines: const ["State Machine"],
-                      animations: const ["open", "close"],
-                      onInit: _onMenuIconInit,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? Colors.black.withOpacity(0.1)
+                                : Colors.white.withOpacity(0.1),
+                          ),
+                          child: RiveAnimation.asset(
+                            app_assets.menuButtonRiv,
+                            stateMachines: const ["State Machine"],
+                            animations: const ["open", "close"],
+                            onInit: _onMenuIconInit,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -358,8 +437,8 @@ class _RiveAppHomeState extends State<RiveAppHome>
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          RiveAppTheme.background.withOpacity(0),
-                          RiveAppTheme.background.withOpacity(opacity)
+                          RiveAppTheme.getBackgroundColor(isDarkMode).withOpacity(0),
+                          RiveAppTheme.getBackgroundColor(isDarkMode).withOpacity(opacity)
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,

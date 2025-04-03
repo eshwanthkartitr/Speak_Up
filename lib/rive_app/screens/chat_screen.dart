@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:flutter_samples/rive_app/components/sign_camera.dart';
+import 'package:provider/provider.dart';
 
 class ChatMessage {
   final String text;
@@ -27,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
   bool _showSignLanguageOption = false;
+  bool _isSignDetectionActive = false;
   
   List<ChatMessage> _messages = [];
 
@@ -137,41 +141,95 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     });
   }
 
+  void _handleSignDetected(String sign) {
+    // When a sign is detected, send it as a message
+    final userMessage = ChatMessage(
+      text: "Sign detected: $sign",
+      isUser: true,
+      time: DateTime.now(),
+      containsSignLanguage: true,
+    );
+    
+    setState(() {
+      _messages.add(userMessage);
+      _showSignLanguageOption = false;
+    });
+    
+    // Scroll to bottom
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+    
+    // Add bot response
+    Future.delayed(const Duration(seconds: 1), () {
+      _respondToMessage(sign);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get available safe area to avoid overlapping with system UI
     final mediaQuery = MediaQuery.of(context);
     final topPadding = mediaQuery.padding.top;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
     
     return Container(
-      color: RiveAppTheme.background,
+      color: RiveAppTheme.getBackgroundColor(isDarkMode),
       child: Column(
         children: [
-          // Extra spacing at the top to avoid menu button from home.dart
           SizedBox(height: topPadding + 60),
           
-          // Custom title - centered with no conflicting buttons
+          // Title with sign detection toggle
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: Text(
-                'Sign Language Assistant',
-                style: TextStyle(
-                  fontSize: 20, 
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                Text(
+                  'Sign Language Assistant',
+                  style: TextStyle(
+                    fontSize: 20, 
+                    fontWeight: FontWeight.bold,
+                    color: RiveAppTheme.getTextColor(isDarkMode),
+                  ),
                 ),
-              ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    _isSignDetectionActive ? Icons.sign_language : Icons.sign_language_outlined,
+                    color: _isSignDetectionActive ? RiveAppTheme.accentColor : RiveAppTheme.getTextSecondaryColor(isDarkMode),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isSignDetectionActive = !_isSignDetectionActive;
+                    });
+                  },
+                ),
+              ],
             ),
           ),
           
-          // Chat assistant status indicator - more subtle
+          // Status indicator
           Container(
             margin: const EdgeInsets.fromLTRB(0, 12, 0, 0),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
+              color: isDarkMode 
+                  ? Colors.green.withOpacity(0.15)
+                  : Colors.green.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDarkMode
+                    ? Colors.green.withOpacity(0.3)
+                    : Colors.transparent,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -180,7 +238,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: Colors.green[700],
+                    color: isDarkMode ? Colors.green[400] : Colors.green[700],
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -188,7 +246,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 Text(
                   'Online',
                   style: TextStyle(
-                    color: Colors.green[700],
+                    color: isDarkMode ? Colors.green[400] : Colors.green[700],
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -199,19 +257,37 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           
           const SizedBox(height: 16),
           
+          // Sign detection camera
+          if (_isSignDetectionActive)
+            Container(
+              height: 200,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: SignCamera(
+                onSignDetected: _handleSignDetected,
+                showPreview: true,
+              ),
+            ),
+          
           // Date indicator
           Container(
             margin: const EdgeInsets.symmetric(vertical: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
+              color: isDarkMode 
+                  ? Colors.grey.withOpacity(0.15)
+                  : Colors.grey.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDarkMode
+                    ? Colors.grey.withOpacity(0.2)
+                    : Colors.transparent,
+              ),
             ),
             child: Text(
               'Today',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               ),
             ),
           ),
@@ -224,7 +300,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
-                return _buildMessageItem(message, index);
+                return _buildMessageItem(message, index, themeProvider);
               },
             ),
           ),
@@ -235,17 +311,14 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    RiveAppTheme.accentColor.withOpacity(0.05),
-                    Colors.blue.withOpacity(0.05),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: isDarkMode 
+                    ? RiveAppTheme.accentColor.withOpacity(0.15)
+                    : RiveAppTheme.accentColor.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: RiveAppTheme.accentColor.withOpacity(0.3),
+                  color: isDarkMode
+                      ? RiveAppTheme.accentColor.withOpacity(0.4)
+                      : RiveAppTheme.accentColor.withOpacity(0.3),
                 ),
               ),
               child: Row(
@@ -253,30 +326,35 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: RiveAppTheme.accentColor.withOpacity(0.2),
+                      color: isDarkMode
+                          ? RiveAppTheme.accentColor.withOpacity(0.3)
+                          : RiveAppTheme.accentColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.sign_language,
-                      color: RiveAppTheme.accentColor,
+                      color: isDarkMode ? Colors.white : RiveAppTheme.accentColor,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                           'Watch Sign Demonstration',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
+                            color: RiveAppTheme.getTextColor(isDarkMode),
                           ),
                         ),
                         Text(
                           'See how this sign is performed',
                           style: TextStyle(
-                            color: Colors.black54,
+                            color: isDarkMode 
+                                ? Colors.grey[400]
+                                : Colors.black54,
                             fontSize: 12,
                           ),
                         ),
@@ -291,6 +369,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: RiveAppTheme.accentColor,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -304,13 +383,18 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           
           // Message input
           Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 100), // Bottom margin for tab bar
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 100),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDarkMode ? RiveAppTheme.cardDark : Colors.white,
               borderRadius: BorderRadius.circular(24),
+              border: isDarkMode
+                  ? Border.all(color: Colors.white10)
+                  : null,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: isDarkMode 
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -323,9 +407,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 Material(
                   color: Colors.transparent,
                   child: IconButton(
-                    icon: Icon(Icons.mic, color: Colors.grey[500], size: 22),
+                    icon: Icon(
+                      Icons.mic,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                      size: 22,
+                    ),
                     onPressed: () {
-                      // Voice input functionality would go here
+                      // Voice input functionality
                     },
                   ),
                 ),
@@ -338,10 +426,15 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                       controller: _textController,
                       decoration: InputDecoration(
                         hintText: 'Type your message...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        hintStyle: TextStyle(
+                          color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+                        ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                         isDense: true,
+                      ),
+                      style: TextStyle(
+                        color: RiveAppTheme.getTextColor(isDarkMode),
                       ),
                       keyboardType: TextInputType.text,
                       textCapitalization: TextCapitalization.sentences,
@@ -355,7 +448,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 Material(
                   color: Colors.transparent,
                   child: IconButton(
-                    icon: Icon(Icons.image_outlined, color: Colors.grey[500], size: 22),
+                    icon: Icon(
+                      Icons.image_outlined,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                      size: 22,
+                    ),
                     onPressed: () {
                       // Image attachment functionality
                     },
@@ -366,14 +463,18 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 Material(
                   color: Colors.transparent,
                   child: IconButton(
-                    icon: Icon(Icons.camera_alt_outlined, color: Colors.grey[500], size: 22),
+                    icon: Icon(
+                      Icons.camera_alt_outlined,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                      size: 22,
+                    ),
                     onPressed: () {
                       // Camera functionality
                     },
                   ),
                 ),
                 
-                // Send button with container for better touch target and visual
+                // Send button
                 Padding(
                   padding: const EdgeInsets.only(right: 4, bottom: 4),
                   child: Material(
@@ -403,7 +504,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildMessageItem(ChatMessage message, int index) {
+  Widget _buildMessageItem(ChatMessage message, int index, ThemeProvider themeProvider) {
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Padding(
       padding: EdgeInsets.only(
         bottom: 12,
@@ -422,8 +525,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    RiveAppTheme.accentColor.withOpacity(0.7),
-                    RiveAppTheme.accentColor.withOpacity(0.9),
+                    RiveAppTheme.accentColor.withOpacity(isDarkMode ? 0.8 : 0.7),
+                    RiveAppTheme.accentColor.withOpacity(isDarkMode ? 1.0 : 0.9),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -431,7 +534,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: RiveAppTheme.accentColor.withOpacity(0.2),
+                    color: RiveAppTheme.accentColor.withOpacity(isDarkMode ? 0.3 : 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -452,7 +555,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   decoration: BoxDecoration(
                     color: message.isUser 
                         ? RiveAppTheme.accentColor
-                        : Colors.white,
+                        : isDarkMode
+                            ? Colors.grey[800]
+                            : RiveAppTheme.getCardColor(isDarkMode),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(20),
                       topRight: const Radius.circular(20),
@@ -462,8 +567,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                     boxShadow: [
                       BoxShadow(
                         color: message.isUser
-                            ? RiveAppTheme.accentColor.withOpacity(0.25)
-                            : Colors.black.withOpacity(0.05),
+                            ? RiveAppTheme.accentColor.withOpacity(isDarkMode ? 0.3 : 0.25)
+                            : Colors.black.withOpacity(isDarkMode ? 0.3 : 0.05),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -472,7 +577,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   child: Text(
                     message.text,
                     style: TextStyle(
-                      color: message.isUser ? Colors.white : Colors.black87,
+                      color: message.isUser || isDarkMode ? Colors.white : Colors.black87,
                       fontSize: 14.5,
                     ),
                   ),
@@ -491,7 +596,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                         _formatTime(message.time),
                         style: TextStyle(
                           fontSize: 10,
-                          color: Colors.grey[500],
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
                       if (message.isUser) ...[
@@ -499,7 +604,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                         Icon(
                           Icons.done_all,
                           size: 12,
-                          color: Colors.blue[400],
+                          color: isDarkMode ? Colors.blue[300] : Colors.blue[400],
                         ),
                       ],
                     ],
@@ -516,14 +621,16 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               margin: const EdgeInsets.only(left: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.blue.shade600],
+                  colors: isDarkMode
+                      ? [Colors.blue[300]!, Colors.blue[500]!]
+                      : [Colors.blue.shade400, Colors.blue.shade600],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
+                    color: Colors.blue.withOpacity(isDarkMode ? 0.4 : 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:rive/rive.dart';
 import 'package:flutter_samples/rive_app/components/menu_row.dart';
 import 'package:flutter_samples/rive_app/models/menu_item.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
 import 'package:flutter_samples/rive_app/assets.dart' as app_assets;
 
 class SideMenu extends StatefulWidget {
@@ -18,7 +20,6 @@ class _SideMenuState extends State<SideMenu> {
   final List<MenuItemModel> _historyMenuIcons = MenuItemModel.menuItems2;
   final List<MenuItemModel> _themeMenuIcon = MenuItemModel.menuItems3;
   String _selectedMenu = MenuItemModel.menuItems[0].title;
-  bool _isDarkMode = false;
 
   void onThemeRiveIconInit(artboard) {
     final controller = StateMachineController.fromArtboard(
@@ -35,14 +36,16 @@ class _SideMenuState extends State<SideMenu> {
   }
 
   void onThemeToggle(value) {
-    setState(() {
-      _isDarkMode = value;
-    });
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    themeProvider.setDarkMode(value);
     _themeMenuIcon[0].riveIcon.status!.change(value);
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Container(
       padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top,
@@ -50,7 +53,7 @@ class _SideMenuState extends State<SideMenu> {
       constraints: const BoxConstraints(maxWidth: 288),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: RiveAppTheme.background2,
+        color: isDarkMode ? RiveAppTheme.background2Dark : RiveAppTheme.background2,
         borderRadius: BorderRadius.circular(30),
       ),
       child: Column(
@@ -128,7 +131,7 @@ class _SideMenuState extends State<SideMenu> {
                       fontWeight: FontWeight.w600),
                 ),
               ),
-              CupertinoSwitch(value: _isDarkMode, onChanged: onThemeToggle),
+              CupertinoSwitch(value: isDarkMode, onChanged: onThemeToggle),
             ]),
           )
         ],

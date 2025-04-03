@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 
 class ProfileScreen extends StatefulWidget {
@@ -33,16 +35,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _notificationsEnabled = true;
   bool _practiceReminders = true;
   bool _dataSync = true;
-  bool _darkMode = false;
 
   @override
   Widget build(BuildContext context) {
+    // Get the ThemeProvider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     // Get available safe area to avoid overlapping with system UI
     final mediaQuery = MediaQuery.of(context);
     final safePadding = mediaQuery.padding;
     
     return Container(
-      color: RiveAppTheme.background,
+      color: RiveAppTheme.getBackgroundColor(themeProvider.isDarkMode),
       child: SingleChildScrollView(
         padding: EdgeInsets.only(
           top: safePadding.top + 16, // Extra padding to avoid top menu button
@@ -64,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: TextStyle(
                           fontSize: 20, 
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: RiveAppTheme.getTextColor(themeProvider.isDarkMode),
                         ),
                       ),
                     ),
@@ -263,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
+                  color: RiveAppTheme.getTextColor(themeProvider.isDarkMode),
                 ),
               ),
             ),
@@ -282,18 +286,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     "${_userData["signsMastered"]}",
                     Icons.verified,
                     Colors.green,
+                    themeProvider,
                   ),
                   _buildStatCard(
                     "Practice Time",
                     "${(_userData["totalPracticeTime"] / 60).round()} hrs",
                     Icons.access_time,
                     Colors.blue,
+                    themeProvider,
                   ),
                   _buildStatCard(
                     "Member Since",
                     "${_formatJoinDate(_userData["joinDate"])}",
                     Icons.calendar_today,
                     Colors.purple,
+                    themeProvider,
                   ),
                 ],
               ),
@@ -312,7 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
+                      color: RiveAppTheme.getTextColor(themeProvider.isDarkMode),
                     ),
                   ),
                   Text(
@@ -331,7 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             
             ..._userData["achievements"]
                 .take(3)
-                .map<Widget>((achievement) => _buildAchievementItem(achievement))
+                .map<Widget>((achievement) => _buildAchievementItem(achievement, themeProvider))
                 .toList(),
             
             const SizedBox(height: 24),
@@ -344,7 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
+                  color: RiveAppTheme.getTextColor(themeProvider.isDarkMode),
                 ),
               ),
             ),
@@ -361,6 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _notificationsEnabled = value;
                 });
               },
+              themeProvider,
             ),
             
             _buildSettingItem(
@@ -373,6 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _practiceReminders = value;
                 });
               },
+              themeProvider,
             ),
             
             _buildSettingItem(
@@ -385,19 +394,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _dataSync = value;
                 });
               },
+              themeProvider,
             ),
             
-            _buildSettingItem(
-              "Dark Mode",
-              "Switch to dark theme",
-              Icons.dark_mode_outlined,
-              _darkMode,
-              (value) {
-                setState(() {
-                  _darkMode = value;
-                });
-              },
-            ),
+            _buildDarkModeSettingItem(themeProvider),
             
             const SizedBox(height: 20),
             
@@ -409,28 +409,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 0,
-                color: Colors.grey[100],
+                color: RiveAppTheme.getCardColor(themeProvider.isDarkMode),
                 child: Column(
                   children: [
                     _buildAccountOption(
                       "Edit Profile",
                       Icons.person_outline,
+                      themeProvider: themeProvider,
                     ),
-                    Divider(height: 1, color: Colors.grey[300]),
+                    Divider(height: 1, color: RiveAppTheme.getDividerColor(themeProvider.isDarkMode)),
                     _buildAccountOption(
                       "Help & Support",
                       Icons.help_outline,
+                      themeProvider: themeProvider,
                     ),
-                    Divider(height: 1, color: Colors.grey[300]),
+                    Divider(height: 1, color: RiveAppTheme.getDividerColor(themeProvider.isDarkMode)),
                     _buildAccountOption(
                       "Privacy Policy",
                       Icons.privacy_tip_outlined,
+                      themeProvider: themeProvider,
                     ),
-                    Divider(height: 1, color: Colors.grey[300]),
+                    Divider(height: 1, color: RiveAppTheme.getDividerColor(themeProvider.isDarkMode)),
                     _buildAccountOption(
                       "Sign Out",
                       Icons.logout,
                       isDestructive: true,
+                      themeProvider: themeProvider,
                     ),
                   ],
                 ),
@@ -444,7 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text(
                 "Version 1.0.0",
                 style: TextStyle(
-                  color: Colors.grey[500],
+                  color: RiveAppTheme.getTextSecondaryColor(themeProvider.isDarkMode),
                   fontSize: 12,
                 ),
               ),
@@ -457,12 +461,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
   
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color, ThemeProvider themeProvider) {
     return Container(
       width: 160,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RiveAppTheme.getCardColor(themeProvider.isDarkMode),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -489,9 +493,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: RiveAppTheme.getTextColor(themeProvider.isDarkMode),
               ),
             ),
             const SizedBox(height: 4),
@@ -499,7 +504,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: RiveAppTheme.getTextSecondaryColor(themeProvider.isDarkMode),
               ),
             ),
           ],
@@ -508,12 +513,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
   
-  Widget _buildAchievementItem(Map<String, dynamic> achievement) {
+  Widget _buildAchievementItem(Map<String, dynamic> achievement, ThemeProvider themeProvider) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RiveAppTheme.getCardColor(themeProvider.isDarkMode),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -531,13 +536,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               color: achievement["unlocked"] 
                   ? Colors.amber.withOpacity(0.1)
-                  : Colors.grey[200],
+                  : RiveAppTheme.getCardColor(themeProvider.isDarkMode).withOpacity(0.5),
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Icon(
                 Icons.emoji_events,
-                color: achievement["unlocked"] ? Colors.amber : Colors.grey[400],
+                color: achievement["unlocked"] ? Colors.amber : RiveAppTheme.getTextSecondaryColor(themeProvider.isDarkMode),
                 size: 24,
               ),
             ),
@@ -551,7 +556,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   achievement["name"],
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: achievement["unlocked"] ? Colors.black87 : Colors.grey[600],
+                    color: achievement["unlocked"] 
+                        ? RiveAppTheme.getTextColor(themeProvider.isDarkMode) 
+                        : RiveAppTheme.getTextSecondaryColor(themeProvider.isDarkMode),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -559,7 +566,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   achievement["description"],
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: RiveAppTheme.getTextSecondaryColor(themeProvider.isDarkMode),
                   ),
                 ),
               ],
@@ -567,19 +574,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Icon(
             achievement["unlocked"] ? Icons.check_circle : Icons.lock_outline,
-            color: achievement["unlocked"] ? Colors.green : Colors.grey[400],
+            color: achievement["unlocked"] ? RiveAppTheme.successLight : RiveAppTheme.getTextSecondaryColor(themeProvider.isDarkMode),
           ),
         ],
       ),
     );
   }
   
-  Widget _buildSettingItem(String title, String description, IconData icon, bool value, Function(bool) onChanged) {
+  Widget _buildSettingItem(String title, String description, IconData icon, bool value, Function(bool) onChanged, ThemeProvider themeProvider) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RiveAppTheme.getCardColor(themeProvider.isDarkMode),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -635,7 +642,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
   
-  Widget _buildAccountOption(String title, IconData icon, {bool isDestructive = false}) {
+  Widget _buildDarkModeSettingItem(ThemeProvider themeProvider) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: RiveAppTheme.accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.dark_mode_outlined,
+              color: themeProvider.isDarkMode ? RiveAppTheme.accentColor : Colors.grey[400],
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Dark Mode",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Switch to dark theme",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: themeProvider.isDarkMode,
+            onChanged: (value) {
+              themeProvider.setDarkMode(value);
+            },
+            activeColor: RiveAppTheme.accentColor,
+            activeTrackColor: RiveAppTheme.accentColor.withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildAccountOption(String title, IconData icon, {bool isDestructive = false, ThemeProvider? themeProvider}) {
+    final isDarkMode = themeProvider?.isDarkMode ?? false;
+    
     return InkWell(
       onTap: () {
         // Handle option tap
@@ -646,7 +718,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(
               icon,
-              color: isDestructive ? Colors.red[400] : Colors.grey[700],
+              color: isDestructive ? RiveAppTheme.errorLight : RiveAppTheme.getTextSecondaryColor(isDarkMode),
               size: 20,
             ),
             const SizedBox(width: 16),
@@ -655,13 +727,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title,
                 style: TextStyle(
                   fontSize: 16,
-                  color: isDestructive ? Colors.red[400] : Colors.black87,
+                  color: isDestructive ? RiveAppTheme.errorLight : RiveAppTheme.getTextColor(isDarkMode),
                 ),
               ),
             ),
             Icon(
               Icons.chevron_right,
-              color: Colors.grey[400],
+              color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
               size: 20,
             ),
           ],

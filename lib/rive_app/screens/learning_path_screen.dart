@@ -555,7 +555,7 @@ class _LearningPathScreenState extends State<LearningPathScreen>
                         ),
                         child: Center(
                           child: isCompleted
-                              ? Icon(
+                              ? const Icon(
                                   FontAwesomeIcons.check,
                                   color: Colors.white,
                                   size: 24,
