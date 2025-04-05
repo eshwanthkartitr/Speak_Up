@@ -10,7 +10,7 @@
     <application
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:label="SignSpeak"
+        android:label="Learn 2 Speak"
         tools:replace="android:label">
         <activity
             android:name=".MainActivity"

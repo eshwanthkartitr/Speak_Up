@@ -5,6 +5,10 @@ import 'package:rive/rive.dart' hide LinearGradient;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'dart:math';
+import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_samples/rive_app/models/courses.dart';
+import 'package:flutter_samples/rive_app/screens/lesson_detail_screen.dart';
 
 // Custom page route for beautiful transitions
 class SlidePageRoute extends PageRouteBuilder {
@@ -154,8 +158,12 @@ class _LearningPathScreenState extends State<LearningPathScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Get theme provider to access dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: RiveAppTheme.background,
+      backgroundColor: RiveAppTheme.getBackgroundColor(isDarkMode),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -280,7 +288,7 @@ class _LearningPathScreenState extends State<LearningPathScreen>
                   setState(() {
                     _selectedNodeIndex = currentIndex;
                   });
-                  // Add navigation here
+                  _showLessonDetails(_pathNodes[currentIndex]);
                 }
               },
               backgroundColor: Colors.blue.shade600,
@@ -489,9 +497,9 @@ class _LearningPathScreenState extends State<LearningPathScreen>
         // Provide haptic feedback
         HapticFeedback.mediumImpact();
         
-        // Navigate to lesson
+        // Navigate to lesson details with animated route
         if (isCompleted || isCurrent) {
-          // Add navigation to lesson details with animated route
+          _showLessonDetails(node);
         }
       },
       child: Hero(
@@ -696,6 +704,191 @@ class _LearningPathScreenState extends State<LearningPathScreen>
           ),
         ),
       ),
+    );
+  }
+
+  // Add a new method to show lesson details
+  void _showLessonDetails(Map<String, dynamic> node) {
+    final bool isCompleted = node['isCompleted'] as bool;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 20),
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  
+                  // Title section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: isCompleted ? Colors.green : Colors.blue,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            node['icon'] as IconData,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                node['title'] as String,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                node['description'] as String,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Divider
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                    child: Divider(color: Colors.grey[300], height: 1),
+                  ),
+                  
+                  // Lessons list
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: 5, // Simulating 5 lessons per node
+                      itemBuilder: (context, index) {
+                        // Create sample lesson names based on the node title
+                        final lessonTitle = "Lesson ${index + 1}: ${node['title']} ${index + 1}";
+                        final isLessonCompleted = isCompleted || (index == 0 && !isCompleted);
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isLessonCompleted ? Colors.grey[100] : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isLessonCompleted ? Colors.green.withOpacity(0.3) : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: isLessonCompleted ? Colors.green.withOpacity(0.1) : Colors.grey[100],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: isLessonCompleted
+                                      ? const Icon(Icons.check_circle, color: Colors.green)
+                                      : Text(
+                                          "${index + 1}",
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              title: Text(
+                                lessonTitle,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isLessonCompleted ? Colors.black87 : Colors.grey[600],
+                                ),
+                              ),
+                              subtitle: Text(
+                                "Duration: 10-15 minutes",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: isLessonCompleted ? Colors.grey[600] : Colors.grey[400],
+                              ),
+                              onTap: () {
+                                // Navigate to the lesson screen
+                                Navigator.pop(context);
+                                
+                                // Create a CourseModel from the node data
+                                final courseModel = CourseModel(
+                                  title: node['title'],
+                                  caption: node['description'],
+                                  color: isCompleted ? Colors.green : Colors.blue,
+                                  icon: node['icon'] as IconData,
+                                  progress: isCompleted ? 1.0 : 0.0,
+                                  xpReward: node['xp'] as int,
+                                );
+                                
+                                // Navigate to the lesson detail screen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LessonDetailScreen(
+                                      course: courseModel,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

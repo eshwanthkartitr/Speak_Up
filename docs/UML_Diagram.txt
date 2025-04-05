@@ -1,0 +1,55 @@
++-------------------+       +------------------+       +-------------------+
+|    UserModel      |<------|  UserProvider   |       |    ThemeProvider  |
++-------------------+       +------------------+       +-------------------+
+| - id              |       | - currentUser    |       | - isDarkMode      |
+| - name            |       | - isAuthenticated|       +-------------------+
+| - email           |       +------------------+               ^
+| - level           |       | + login()        |               |
+| - xpPoints        |       | + logout()       |       +-------+-------+
+| - streak          |       | + updateProfile()|       |  RiveAppTheme  |
++-------------------+       +------------------+       +---------------+
+                                                       | + getTextColor|
+                                                       | + getCardColor|
+                                                       +---------------+
+                                                               ^
+                                                               |
++-------------------+       +------------------+               |
+| CourseModel       |<----->| LessonModel      |               |
++-------------------+       +------------------+               |
+| - id              |       | - title          |               |
+| - title           |       | - description    |               |
+| - subtitle        |       | - duration       |               |
+| - color           |       | - difficulty     |               |
+| - progress        |       | - isCompleted    |               |
+| - xpReward        |       +------------------+               |
+| - lessons         |                                          |
++-------------------+                                          |
+         ^                                                     |
+         |                                                     |
+         |                    +---------------------------------+
+         |                    |                |                |
+         |                    |                |                |
++--------+---------+   +-----+------+   +-----+------+   +-----+------+
+| LearningPathScreen|   | ChatScreen  |   | HomeTabView |   | CharacterPlayground |
++------------------+   +-------------+   +-------------+   +------------------+
+| - _pathNodes     |   | - _messages  |   |             |   | - _currentPrediction |
+| - _animations    |   | - _isLoading |   |             |   | - _characterType     |
++------------------+   +-------------+   +-------------+   +------------------+
+| + _buildPathNode |   | + _sendMessage|  | + navigate  |   | + _processFrame()    |
+| + _showDetails   |   | + _handleSign |  |             |   | + _addCharacter()    |
++------------------+   +-------------+   +-------------+   +------------------+
+       |                     |                  |                  |
+       |                     |                  |                  |
+       |                     v                  |                  v
++------+--------+    +------+-------+           |           +------+-------+
+| LessonDetail  |    | GeminiService |           |           | ModelHelper   |
++---------------+    +--------------+           |           +--------------+
+                     | + generateResponse       +---------->| + loadLabels  |
+                     +--------------+                       | + simulatePrediction |
+                           ^                                | + generateSuggestions|
+                           |                                +--------------+
+                     +-----+--------+                              | 
+                     | SignCamera    |<--------------------------->|
+                     +--------------+                        +-----+------+
+                     | + detectSign  |                       | labels.txt |
+                     +--------------+                        +------------+ 

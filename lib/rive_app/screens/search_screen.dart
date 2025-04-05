@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
 import 'package:flutter_samples/rive_app/theme_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_samples/rive_app/screens/sign_detection_screen.dart';
 
 class SignItem {
   final String name;
@@ -174,153 +175,179 @@ class _SearchScreenState extends State<SearchScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
     
-    return Container(
-      color: RiveAppTheme.getBackgroundColor(isDarkMode),
-      padding: EdgeInsets.only(
-        top: safePadding.top + 16, // Extra padding to avoid top menu button
-        bottom: safePadding.bottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Custom App Bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0,50,40,10) ,
-            child: Row(
+    return Scaffold(
+      backgroundColor: RiveAppTheme.getBackgroundColor(isDarkMode),
+      body: Container(
+        padding: EdgeInsets.only(
+          top: safePadding.top + 16, // Extra padding to avoid top menu button
+          bottom: safePadding.bottom,
+        ),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(width: 40), // Space for the menu button
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'Sign Dictionary',
-                      style: TextStyle(
-                        fontSize: 20, 
-                        fontWeight: FontWeight.bold,
-                        color: RiveAppTheme.getTextColor(isDarkMode),
+                // Custom App Bar
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0,50,40,10),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 40), // Space for the menu button
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'Sign Dictionary',
+                            style: TextStyle(
+                              fontSize: 20, 
+                              fontWeight: FontWeight.bold,
+                              color: RiveAppTheme.getTextColor(isDarkMode),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      Switch(
+                        value: _showFavoritesOnly,
+                        onChanged: (value) {
+                          setState(() {
+                            _showFavoritesOnly = value;
+                            _filterSigns();
+                          });
+                        },
+                        activeColor: RiveAppTheme.accentColor,
+                        activeTrackColor: RiveAppTheme.accentColor.withOpacity(0.3),
+                      ),
+                      Icon(
+                        Icons.favorite,
+                        color: _showFavoritesOnly ? RiveAppTheme.accentColor : RiveAppTheme.getTextSecondaryColor(isDarkMode),
+                        size: 20,
+                      ),
+                    ],
                   ),
                 ),
-                Switch(
-                  value: _showFavoritesOnly,
-                  onChanged: (value) {
-                    setState(() {
-                      _showFavoritesOnly = value;
-                      _filterSigns();
-                    });
-                  },
-                  activeColor: RiveAppTheme.accentColor,
-                  activeTrackColor: RiveAppTheme.accentColor.withOpacity(0.3),
-                ),
-                Icon(
-                  Icons.favorite,
-                  color: _showFavoritesOnly ? RiveAppTheme.accentColor : RiveAppTheme.getTextSecondaryColor(isDarkMode),
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          
-          // Search bar
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: RiveAppTheme.getInputBackgroundColor(isDarkMode),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search signs...',
-                hintStyle: TextStyle(color: RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.6)),
-                prefixIcon: Icon(Icons.search, color: RiveAppTheme.getTextSecondaryColor(isDarkMode)),
-                suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear, color: RiveAppTheme.getTextSecondaryColor(isDarkMode)),
-                      onPressed: () {
-                        _searchController.clear();
-                      },
-                    )
-                  : null,
-                border: InputBorder.none,
-              ),
-              style: TextStyle(color: RiveAppTheme.getTextColor(isDarkMode)),
-            ),
-          ),
-          
-          // Categories
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final category = _categories[index];
-                final isSelected = _selectedCategory == category;
                 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text(category),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        _selectCategory(category);
-                      }
-                    },
-                    backgroundColor: RiveAppTheme.getCardColor(isDarkMode),
-                    selectedColor: RiveAppTheme.accentColor.withOpacity(0.2),
-                    labelStyle: TextStyle(
-                      color: isSelected ? RiveAppTheme.accentColor : RiveAppTheme.getTextColor(isDarkMode),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: isSelected ? RiveAppTheme.accentColor : RiveAppTheme.getDividerColor(isDarkMode),
+                // Search bar
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: RiveAppTheme.getInputBackgroundColor(isDarkMode),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search signs...',
+                      hintStyle: TextStyle(color: RiveAppTheme.getTextSecondaryColor(isDarkMode).withOpacity(0.6)),
+                      prefixIcon: Icon(Icons.search, color: RiveAppTheme.getTextSecondaryColor(isDarkMode)),
+                      suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: RiveAppTheme.getTextSecondaryColor(isDarkMode)),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                      border: InputBorder.none,
+                    ),
+                    style: TextStyle(color: RiveAppTheme.getTextColor(isDarkMode)),
+                  ),
+                ),
+                
+                // Categories
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final category = _categories[index];
+                      final isSelected = _selectedCategory == category;
+                      
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              _selectCategory(category);
+                            }
+                          },
+                          backgroundColor: RiveAppTheme.getCardColor(isDarkMode),
+                          selectedColor: RiveAppTheme.accentColor.withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: isSelected ? RiveAppTheme.accentColor : RiveAppTheme.getTextColor(isDarkMode),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSelected ? RiveAppTheme.accentColor : RiveAppTheme.getDividerColor(isDarkMode),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                // Results count
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    '${_filteredSigns.length} ${_filteredSigns.length == 1 ? 'sign' : 'signs'} found',
+                    style: TextStyle(
+                      color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                );
-              },
+                ),
+                
+                // Search results
+                Expanded(
+                  child: _filteredSigns.isEmpty
+                      ? _buildEmptyState(isDarkMode)
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 80), // Bottom padding for tab bar
+                          itemCount: _filteredSigns.length,
+                          itemBuilder: (context, index) {
+                            final sign = _filteredSigns[index];
+                            return _buildSignItem(sign, index, isDarkMode);
+                          },
+                        ),
+                ),
+              ],
             ),
-          ),
-          
-          // Results count
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              '${_filteredSigns.length} ${_filteredSigns.length == 1 ? 'sign' : 'signs'} found',
-              style: TextStyle(
-                color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
-                fontWeight: FontWeight.w500,
+            // Add floating action button for sign detection
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SignDetectionScreen(),
+                    ),
+                  );
+                },
+                backgroundColor: RiveAppTheme.accentColor,
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: Colors.white,
+                ),
               ),
             ),
-          ),
-          
-          // Search results
-          Expanded(
-            child: _filteredSigns.isEmpty
-                ? _buildEmptyState(isDarkMode)
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 80), // Bottom padding for tab bar
-                    itemCount: _filteredSigns.length,
-                    itemBuilder: (context, index) {
-                      final sign = _filteredSigns[index];
-                      return _buildSignItem(sign, index, isDarkMode);
-                    },
-                  ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

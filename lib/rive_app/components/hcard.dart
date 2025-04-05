@@ -1,193 +1,161 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/models/courses.dart';
+import 'package:flutter_samples/rive_app/screens/lesson_detail_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class HCard extends StatelessWidget {
-  const HCard({Key? key, required this.section, this.onTap}) : super(key: key);
+  final CourseModel course;
 
-  final CourseModel section;
-  final VoidCallback? onTap;
+  const HCard({Key? key, required this.course}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Convert progress from 0.0-1.0 to percentage
+    final progressPercent = (course.progress * 100).toInt();
+
     return GestureDetector(
-      onTap: onTap ?? () {},
+      onTap: () {
+        // Navigate to lesson detail screen when tapped
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LessonDetailScreen(course: course),
+          ),
+        );
+      },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.only(right: 20),
+        padding: const EdgeInsets.all(16),
+        width: 280,
+        height: 180,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [section.color, section.color.withOpacity(0.75)],
+            colors: [
+              course.color,
+              course.color.withOpacity(0.5),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: section.color.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: course.color.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Left side - Icon with glow effect
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.15),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: FaIcon(
-                  section.getIcon(),
-                  size: 24,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 10),
-            
-            // Center - Content with fixed width constraints
             Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      section.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontFamily: "Poppins",
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    height: 46,
+                    width: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      section.caption,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontFamily: "Inter",
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.85),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    child: FaIcon(
+                      course.getIcon(),
+                      color: Colors.white,
                     ),
-                    
-                    // Progress indicator if applicable
-                    if (section.progress > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Stack(
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    course.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      fontFamily: "Poppins",
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    course.caption,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontFamily: "Poppins",
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
                           children: [
-                            // Background track
-                            Container(
-                              height: 6,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                            const Icon(
+                              Icons.bolt,
+                              color: Colors.amber,
+                              size: 14,
                             ),
-                            // Progress fill
-                            FractionallySizedBox(
-                              widthFactor: section.progress,
-                              child: Container(
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "${course.xpReward} XP",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
                               ),
                             ),
                           ],
                         ),
                       ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            
-            // Right side - Reward badge and action button
             Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // XP Badge with shine effect
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade600,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.amber.shade600.withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    gradient: LinearGradient(
-                      colors: [Colors.amber.shade400, Colors.amber.shade700],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    "$progressPercent%",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const FaIcon(
-                        FontAwesomeIcons.bolt, 
-                        color: Colors.white, 
-                        size: 12,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${section.xpReward}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-                
-                const SizedBox(height: 10),
-                
-                // Play button with highlight
+                const Spacer(),
                 Container(
-                  width: 42,
-                  height: 42,
+                  padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withOpacity(0.3),
-                        blurRadius: 8,
-                        spreadRadius: 0,
-                      ),
-                    ],
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(50),
                   ),
-                  child: Icon(
-                    Icons.play_arrow_rounded,
-                    color: section.color.withAlpha(240),
-                    size: 28,
+                  child: const Icon(
+                    Icons.arrow_forward,
+                    color: Colors.white,
+                    size: 18,
                   ),
                 ),
               ],

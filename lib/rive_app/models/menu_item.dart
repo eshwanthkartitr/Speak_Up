@@ -18,6 +18,10 @@ class MenuItemModel {
       riveIcon: TabItem(stateMachine: "HOME_interactivity", artboard: "HOME"),
     ),
     MenuItemModel(
+      title: "Profile",
+      riveIcon: TabItem(stateMachine: "USER_Interactivity", artboard: "USER"),
+    ),
+    MenuItemModel(
       title: "Search",
       riveIcon:
           TabItem(stateMachine: "SEARCH_Interactivity", artboard: "SEARCH"),

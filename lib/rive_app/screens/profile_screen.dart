@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
 import 'package:flutter_samples/rive_app/theme_provider.dart';
+import 'package:flutter_samples/rive_app/services/user_provider.dart';
+import 'package:flutter_samples/rive_app/models/user_model.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -12,15 +15,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Mock user data
-  final Map<String, dynamic> _userData = {
-    "name": "Alex Johnson",
-    "email": "alex.johnson@example.com",
-    "level": 7,
-    "xp": 3450,
-    "xpToNextLevel": 4000,
+  // Additional user stats that aren't in UserModel
+  final Map<String, dynamic> _additionalStats = {
     "joinDate": DateTime(2023, 9, 15),
-    "streakDays": 12,
     "totalPracticeTime": 1840, // in minutes
     "signsMastered": 48,
     "achievements": [
@@ -38,56 +35,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Get the ThemeProvider
+    // Get providers
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
+    // Get user data
+    final UserModel? user = userProvider.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(
+          child: Text("Please sign in to view your profile"),
+        ),
+      );
+    }
     
     // Get available safe area to avoid overlapping with system UI
     final mediaQuery = MediaQuery.of(context);
     final safePadding = mediaQuery.padding;
     
-    return Container(
-      color: RiveAppTheme.getBackgroundColor(themeProvider.isDarkMode),
-      child: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: RiveAppTheme.getBackgroundColor(isDarkMode),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'My Profile',
+          style: TextStyle(
+            color: RiveAppTheme.getTextColor(isDarkMode),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back,
+            color: RiveAppTheme.getTextColor(isDarkMode),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.settings_outlined, 
+              color: RiveAppTheme.getTextColor(isDarkMode),
+            ),
+            onPressed: () {
+              // Navigate to settings
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
         padding: EdgeInsets.only(
-          top: safePadding.top + 16, // Extra padding to avoid top menu button
           bottom: 80, // Extra padding for tab bar
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Custom App Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  const SizedBox(width: 40), // Space for the menu button
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'My Profile',
-                        style: TextStyle(
-                          fontSize: 20, 
-                          fontWeight: FontWeight.bold,
-                          color: RiveAppTheme.getTextColor(themeProvider.isDarkMode),
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.settings_outlined, color: Colors.grey[700]),
-                    onPressed: () {
-                      // Navigate to settings
-                    },
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
             // User profile header
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -135,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: ClipOval(
                               child: Center(
                                 child: Text(
-                                  _userData["name"].substring(0, 1),
+                                  user.name.substring(0, 1),
                                   style: TextStyle(
                                     fontSize: 36,
                                     fontWeight: FontWeight.bold,
@@ -158,7 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               child: Center(
                                 child: Text(
-                                  "${_userData["level"]}",
+                                  "${user.level}",
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -178,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _userData["name"],
+                              user.name,
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -187,7 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _userData["email"],
+                              user.email,
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.white.withOpacity(0.8),
@@ -196,15 +203,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                Icon(Icons.local_fire_department, 
+                                const Icon(Icons.local_fire_department, 
                                   color: Colors.orange, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
-                                  "${_userData["streakDays"]} day streak",
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                  "${user.streak} day streak",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -217,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   
                   const SizedBox(height: 16),
                   
-                  // XP Progress bar
+                  // Progress to next level
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -225,30 +232,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "XP: ${_userData["xp"]}/${_userData["xpToNextLevel"]}",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
+                            "Level ${user.level}",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                           Text(
-                            "${(((_userData["xp"] / _userData["xpToNextLevel"]) * 100).round())}% to Level ${_userData["level"] + 1}",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                            "Level ${user.level + 1}",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
+                      
+                      // Progress bar
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: LinearProgressIndicator(
-                          value: _userData["xp"] / _userData["xpToNextLevel"],
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          color: Colors.white,
-                          minHeight: 8,
+                          value: user.xpPoints / 500, // Assuming 500 XP needed per level
+                          minHeight: 10,
+                          backgroundColor: Colors.white.withOpacity(0.3),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          "${user.xpPoints} / 500 XP",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -283,21 +301,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildStatCard(
                     "Signs Mastered",
-                    "${_userData["signsMastered"]}",
+                    "${_additionalStats["signsMastered"]}",
                     Icons.verified,
                     Colors.green,
                     themeProvider,
                   ),
                   _buildStatCard(
                     "Practice Time",
-                    "${(_userData["totalPracticeTime"] / 60).round()} hrs",
+                    "${(_additionalStats["totalPracticeTime"] / 60).round()} hrs",
                     Icons.access_time,
                     Colors.blue,
                     themeProvider,
                   ),
                   _buildStatCard(
                     "Member Since",
-                    "${_formatJoinDate(_userData["joinDate"])}",
+                    "${_formatJoinDate(_additionalStats["joinDate"])}",
                     Icons.calendar_today,
                     Colors.purple,
                     themeProvider,
@@ -336,7 +354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             
             const SizedBox(height: 12),
             
-            ..._userData["achievements"]
+            ..._additionalStats["achievements"]
                 .take(3)
                 .map<Widget>((achievement) => _buildAchievementItem(achievement, themeProvider))
                 .toList(),

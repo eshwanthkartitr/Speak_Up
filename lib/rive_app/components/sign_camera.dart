@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_samples/rive_app/utils/hand_sign_detector.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'dart:math' as math;
 
 class SignCamera extends StatefulWidget {
@@ -230,6 +230,7 @@ class _SignCameraState extends State<SignCamera> with WidgetsBindingObserver {
                     landmarks: _currentLandmarks!,
                     imageSize: Size(previewWidth, previewHeight),
                     rotation: _controller!.description.sensorOrientation,
+                    isSignDetected: _lastDetectedSign != null,
                   ),
                 ),
               
@@ -273,109 +274,90 @@ class PoseLandmarkPainter extends CustomPainter {
   final List<PoseLandmark> landmarks;
   final Size imageSize;
   final int rotation;
+  final bool isSignDetected;
 
   PoseLandmarkPainter({
     required this.landmarks,
     required this.imageSize,
     required this.rotation,
+    required this.isSignDetected,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final Color pointColor = isSignDetected ? Colors.cyanAccent : Colors.greenAccent;
+    final Color lineColor = isSignDetected ? Colors.cyanAccent.withOpacity(0.5) : Colors.greenAccent.withOpacity(0.5);
+    final Color glowColor = isSignDetected ? Colors.cyanAccent.withOpacity(0.3) : Colors.greenAccent.withOpacity(0.3);
+
     final pointPaint = Paint()
-      ..color = Colors.greenAccent
+      ..color = pointColor
       ..style = PaintingStyle.fill
       ..strokeWidth = 8.0;
 
     final linePaint = Paint()
-      ..color = Colors.greenAccent.withOpacity(0.5)
+      ..color = lineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
     for (final landmark in landmarks) {
+      PoseLandmark? currentLandmark = _getLandmark(landmarks, landmark.type);
+      if (currentLandmark == null) continue;
+
       final point = _transformPoint(
-        Offset(landmark.x * size.width, landmark.y * size.height),
+        Offset(currentLandmark.x * size.width, currentLandmark.y * size.height),
         size,
-        imageSize,
         rotation,
       );
 
-      // Draw point with glow effect
       final glowPaint = Paint()
-        ..color = Colors.greenAccent.withOpacity(0.3)
+        ..color = glowColor
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
       canvas.drawCircle(point, 12, glowPaint);
       canvas.drawCircle(point, 6, pointPaint);
 
-      // Draw connections between landmarks
       if (landmark.type == PoseLandmarkType.rightWrist) {
-        final thumbLandmark = landmarks.firstWhere(
-          (lm) => lm.type == PoseLandmarkType.rightThumb,
-          orElse: () => landmark,
-        );
-        final indexLandmark = landmarks.firstWhere(
-          (lm) => lm.type == PoseLandmarkType.rightIndex,
-          orElse: () => landmark,
-        );
-        final pinkyLandmark = landmarks.firstWhere(
-          (lm) => lm.type == PoseLandmarkType.rightPinky,
-          orElse: () => landmark,
-        );
-
-        final thumbPoint = _transformPoint(
-          Offset(thumbLandmark.x * size.width, thumbLandmark.y * size.height),
-          size,
-          imageSize,
-          rotation,
-        );
-        final indexPoint = _transformPoint(
-          Offset(indexLandmark.x * size.width, indexLandmark.y * size.height),
-          size,
-          imageSize,
-          rotation,
-        );
-        final pinkyPoint = _transformPoint(
-          Offset(pinkyLandmark.x * size.width, pinkyLandmark.y * size.height),
-          size,
-          imageSize,
-          rotation,
-        );
-
-        canvas.drawLine(point, thumbPoint, linePaint);
-        canvas.drawLine(point, indexPoint, linePaint);
-        canvas.drawLine(point, pinkyPoint, linePaint);
+        _drawConnection(canvas, linePaint, size, rotation, landmark.type, PoseLandmarkType.rightThumb);
+        _drawConnection(canvas, linePaint, size, rotation, landmark.type, PoseLandmarkType.rightIndex);
+        _drawConnection(canvas, linePaint, size, rotation, landmark.type, PoseLandmarkType.rightPinky);
+        _drawConnection(canvas, linePaint, size, rotation, landmark.type, PoseLandmarkType.rightElbow);
+      }
+      if (landmark.type == PoseLandmarkType.rightElbow) {
+        _drawConnection(canvas, linePaint, size, rotation, landmark.type, PoseLandmarkType.rightShoulder);
+      }
+      if (landmark.type == PoseLandmarkType.rightShoulder) {
+        _drawConnection(canvas, linePaint, size, rotation, landmark.type, PoseLandmarkType.leftShoulder);
       }
     }
   }
 
-  Offset _transformPoint(Offset point, Size viewSize, Size imageSize, int rotation) {
-    final double scale = math.min(
-      viewSize.width / imageSize.width,
-      viewSize.height / imageSize.height,
-    );
+  void _drawConnection(Canvas canvas, Paint paint, Size viewSize, int rotation, PoseLandmarkType type1, PoseLandmarkType type2) {
+    PoseLandmark? lm1 = _getLandmark(landmarks, type1);
+    PoseLandmark? lm2 = _getLandmark(landmarks, type2);
 
-    final double offsetX = (viewSize.width - imageSize.width * scale) / 2;
-    final double offsetY = (viewSize.height - imageSize.height * scale) / 2;
-
-    final double x = point.dx * scale + offsetX;
-    final double y = point.dy * scale + offsetY;
-
-    switch (rotation) {
-      case 0:
-        return Offset(x, y);
-      case 90:
-        return Offset(viewSize.height - y, x);
-      case 180:
-        return Offset(viewSize.width - x, viewSize.height - y);
-      case 270:
-        return Offset(y, viewSize.width - x);
-      default:
-        return Offset(x, y);
+    if (lm1 != null && lm2 != null) {
+      final point1 = _transformPoint(Offset(lm1.x * viewSize.width, lm1.y * viewSize.height), viewSize, rotation);
+      final point2 = _transformPoint(Offset(lm2.x * viewSize.width, lm2.y * viewSize.height), viewSize, rotation);
+      canvas.drawLine(point1, point2, paint);
     }
+  }
+
+  PoseLandmark? _getLandmark(List<PoseLandmark> landmarks, PoseLandmarkType type) {
+    try {
+      return landmarks.firstWhere((lm) => lm.type == type);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Offset _transformPoint(Offset point, Size viewSize, int rotation) {
+    double x = point.dx;
+    double y = point.dy;
+
+    return Offset(x, y);
   }
 
   @override
   bool shouldRepaint(PoseLandmarkPainter oldDelegate) {
-    return oldDelegate.landmarks != landmarks;
+    return oldDelegate.landmarks != landmarks || oldDelegate.isSignDetected != isSignDetected;
   }
 } 

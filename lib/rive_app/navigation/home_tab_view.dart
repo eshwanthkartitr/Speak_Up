@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/components/hcard.dart';
 import 'package:flutter_samples/rive_app/components/vcard.dart';
 import 'package:flutter_samples/rive_app/models/courses.dart';
+import 'package:flutter_samples/rive_app/models/menu_item.dart';
+import 'package:flutter_samples/rive_app/models/user_model.dart';
+import 'package:flutter_samples/rive_app/screens/character_playground_screen.dart';
+import 'package:flutter_samples/rive_app/screens/chat_screen.dart';
+import 'package:flutter_samples/rive_app/screens/learning_path_screen.dart';
+import 'package:flutter_samples/rive_app/screens/lesson_detail_screen.dart';
+import 'package:flutter_samples/rive_app/services/user_provider.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
 import 'package:flutter_samples/rive_app/theme_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:flutter_samples/rive_app/screens/learning_path_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:rive/rive.dart' hide LinearGradient;
+import 'package:flutter_samples/rive_app/assets.dart' as app_assets;
 
 class HomeTabView extends StatefulWidget {
   const HomeTabView({Key? key}) : super(key: key);
@@ -15,7 +23,7 @@ class HomeTabView extends StatefulWidget {
   State<HomeTabView> createState() => _HomeTabViewState();
 }
 
-class _HomeTabViewState extends State<HomeTabView> {
+class _HomeTabViewState extends State<HomeTabView> with SingleTickerProviderStateMixin {
   final List<CourseModel> _courses = CourseModel.courses;
   final List<CourseModel> _courseSections = CourseModel.courseSections;
 
@@ -24,6 +32,71 @@ class _HomeTabViewState extends State<HomeTabView> {
   final int _xpPoints = 450;
   final int _todayXP = 30;
   final int _level = 5;
+  
+  // Animation controllers for Rive
+  StateMachineController? _riveController;
+  SMITrigger? _riveButtonTrigger;
+  
+  // Stores the current active animation
+  String _activeButton = '';
+  
+  void _onRiveInit(Artboard artboard, String stateMachineName) {
+    final controller = StateMachineController.fromArtboard(
+      artboard, 
+      stateMachineName,
+    );
+    
+    if (controller != null) {
+      artboard.addController(controller);
+      _riveController = controller;
+      final trigger = controller.findInput<bool>('Trigger');
+      if (trigger != null) {
+        _riveButtonTrigger = trigger as SMITrigger;
+      } else {
+        print('Warning: Trigger input not found in Rive animation');
+      }
+    }
+  }
+  
+  void _navigateWithAnimation(BuildContext context, Widget destination, String buttonId) {
+    // Mark which button is being pressed
+    setState(() {
+      _activeButton = buttonId;
+    });
+    
+    // Trigger animation
+    _riveButtonTrigger?.fire();
+    
+    // Navigate after a delay
+    Future.delayed(const Duration(milliseconds: 800), () {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => destination,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            var begin = const Offset(0.0, 1.0);
+            var end = Offset.zero;
+            var curve = Curves.easeOutCubic;
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      ).then((_) {
+        // Reset active button when returning
+        setState(() {
+          _activeButton = '';
+        });
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,20 +193,19 @@ class _HomeTabViewState extends State<HomeTabView> {
                 ),
               ),
 
-              // Daily challenges list
-              ...List.generate(
-                _courseSections.length,
-                (index) => Padding(
-                  key: _courseSections[index].id,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: HCard(section: _courseSections[index]),
-                ),
-              ),
+              // Daily challenge cards
+              _buildDailyChallenges(isDarkMode),
 
               // AI Conversation section
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                 child: _buildAIConversationCard(isDarkMode),
+              ),
+
+              // Playground feature button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: _buildPlaygroundCard(isDarkMode),
               ),
             ],
           ),
@@ -144,6 +216,15 @@ class _HomeTabViewState extends State<HomeTabView> {
 
   // User stats bar with gamification elements
   Widget _buildUserStats(bool isDarkMode) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final isAuthenticated = userProvider.isAuthenticated;
+    
+    // Get user stats from provider if authenticated, else use default values
+    final level = isAuthenticated ? userProvider.currentUser!.level : _level;
+    final xpPoints = isAuthenticated ? userProvider.currentUser!.xpPoints : _xpPoints;
+    final currentStreak = isAuthenticated ? userProvider.currentUser!.streak : _currentStreak;
+    final todayXP = _todayXP; // This is still hardcoded as it's not stored in the database
+    
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(16),
@@ -190,7 +271,7 @@ class _HomeTabViewState extends State<HomeTabView> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      "$_level",
+                      "$level",
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -199,7 +280,7 @@ class _HomeTabViewState extends State<HomeTabView> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    "($_xpPoints XP)",
+                    "($xpPoints XP)",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -224,7 +305,7 @@ class _HomeTabViewState extends State<HomeTabView> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    "$_currentStreak DAY STREAK",
+                    "$currentStreak DAY STREAK",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -233,7 +314,7 @@ class _HomeTabViewState extends State<HomeTabView> {
                 ],
               ),
               Text(
-                "+$_todayXP XP Today",
+                "+$todayXP XP Today",
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
@@ -252,11 +333,7 @@ class _HomeTabViewState extends State<HomeTabView> {
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: InkWell(
         onTap: () {
-          Navigator.of(context).push(
-            SlidePageRoute(
-              page: const LearningPathScreen(),
-            ),
-          );
+          _navigateWithAnimation(context, const LearningPathScreen(), 'learning_path');
         },
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -278,49 +355,65 @@ class _HomeTabViewState extends State<HomeTabView> {
               ),
             ],
           ),
-          child: Row(
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const FaIcon(
-                  FontAwesomeIcons.road,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Learning Path",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: "Poppins",
-                      ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                    Text(
-                      "Follow your personalized sign language journey",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
+                    child: const FaIcon(
+                      FontAwesomeIcons.road,
+                      color: Colors.white,
+                      size: 24,
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Learning Path",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: "Poppins",
+                          ),
+                        ),
+                        Text(
+                          "Follow your personalized sign language journey",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ],
+              ),
+              if (_activeButton == 'learning_path')
+                Positioned.fill(
+                  child: SizedBox(
+                    height: 80,
+                    width: double.infinity,
+                    child: RiveAnimation.asset(
+                      app_assets.confettiRiv,
+                      fit: BoxFit.cover,
+                      onInit: (artboard) => _onRiveInit(artboard, 'State Machine 1'),
+                    ),
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.white,
-                size: 20,
-              ),
             ],
           ),
         ),
@@ -350,61 +443,227 @@ class _HomeTabViewState extends State<HomeTabView> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: const [
-              FaIcon(
-                FontAwesomeIcons.robot,
-                color: Colors.white,
-                size: 24,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  FaIcon(
+                    FontAwesomeIcons.robot,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    "Practice with AI",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: "Poppins",
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 12),
-              Text(
-                "Practice with AI",
+              const SizedBox(height: 12),
+              const Text(
+                "Have a conversation in sign language with our AI assistant. Practice your skills and get instant feedback.",
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 14,
+                  fontFamily: "Inter",
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _navigateWithAnimation(context, const ChatScreen(), 'chat');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: isDarkMode ? Colors.deepPurple.shade300 : Colors.deepPurple,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const FaIcon(FontAwesomeIcons.comments, size: 16),
+                    label: const Text(
+                      "Start Conversation",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (_activeButton == 'chat')
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: SizedBox(
+                  height: 80,
+                  width: double.infinity,
+                  child: RiveAnimation.asset(
+                    app_assets.confettiRiv,
+                    fit: BoxFit.cover,
+                    onInit: (artboard) => _onRiveInit(artboard, 'State Machine 1'),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Playground feature card
+  Widget _buildPlaygroundCard(bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDarkMode
+              ? [Colors.orange.shade900, Colors.deepOrange.shade900]
+              : [Colors.orange.shade400, Colors.deepOrange.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: (isDarkMode ? Colors.deepOrange.shade900 : Colors.deepOrange.shade300).withOpacity(0.3),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  FaIcon(
+                    FontAwesomeIcons.gamepad,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    "Character Playground",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: "Poppins",
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "Practice character recognition with our AI model. Get real-time predictions and word suggestions based on detected characters.",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: "Inter",
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _navigateWithAnimation(context, const CharacterPlaygroundScreen(), 'playground');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: isDarkMode ? Colors.deepOrange.shade300 : Colors.deepOrange,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const FaIcon(FontAwesomeIcons.play, size: 16),
+                    label: const Text(
+                      "Start Playground",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (_activeButton == 'playground')
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: SizedBox(
+                  height: 80,
+                  width: double.infinity,
+                  child: RiveAnimation.asset(
+                    app_assets.confettiRiv,
+                    fit: BoxFit.cover,
+                    onInit: (artboard) => _onRiveInit(artboard, 'State Machine 1'),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Daily challenge cards
+  Widget _buildDailyChallenges(bool isDarkMode) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                "Daily Challenges",
+                style: TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  fontFamily: "Poppins",
+                ),
+              ),
+              Text(
+                "See All",
+                style: TextStyle(
+                  color: Colors.blue,
                   fontFamily: "Poppins",
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Text(
-            "Have a conversation in sign language with our AI assistant. Practice your skills and get instant feedback.",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontFamily: "Inter",
-            ),
+        ),
+        SizedBox(
+          height: 180, // Updated height to match HCard
+          child: ListView.builder(
+            padding: const EdgeInsets.only(left: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: CourseModel.courseSections.length,
+            itemBuilder: (BuildContext context, int index) {
+              final course = CourseModel.courseSections[index];
+              return HCard(course: course);
+            },
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: isDarkMode ? Colors.deepPurple.shade300 : Colors.deepPurple,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const FaIcon(FontAwesomeIcons.comments, size: 16),
-                label: const Text(
-                  "Start Conversation",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_samples/rive_app/services/gemini_service.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
 import 'package:flutter_samples/rive_app/theme_provider.dart';
 import 'package:flutter_samples/rive_app/components/sign_camera.dart';
 import 'package:provider/provider.dart';
+import 'package:rive/rive.dart' hide LinearGradient;
+import 'package:flutter_samples/rive_app/assets.dart' as app_assets;
+import 'package:flutter_samples/rive_app/screens/learning_path_screen.dart';
+import 'package:flutter_samples/rive_app/screens/character_playground_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ChatMessage {
   final String text;
@@ -32,7 +38,14 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   bool _showSignLanguageOption = false;
   bool _isSignDetectionActive = false;
   
+  // Rive animation controllers
+  StateMachineController? _riveController;
+  SMITrigger? _triggerSuccess;
+  
   List<ChatMessage> _messages = [];
+  final GeminiService _geminiService = GeminiService('AIzaSyCzR4C4SRdlksiEdqfeW53_4XC_FC5mBn8');
+  bool _isLoading = false;
+  bool _showOptions = false;
 
   @override
   void initState() {
@@ -42,14 +55,23 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 300),
     );
     
-    // Add initial messages
+    // Add initial messages with welcome and options
     _messages = [
       ChatMessage(
-        text: "Hello! I'm your Sign Language Assistant. How can I help you today?",
+        text: "Hello! I'm your Sign Language Assistant. How can I help you today? You can start learning sign language, practice characters, or have a conversation with me.",
         isUser: false,
         time: DateTime.now().subtract(const Duration(minutes: 5)),
       ),
     ];
+    
+    // Show options after a short delay
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          _showOptions = true;
+        });
+      }
+    });
   }
   
   @override
@@ -57,7 +79,53 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     _textController.dispose();
     _scrollController.dispose();
     _animationController.dispose();
+    _riveController?.dispose();
     super.dispose();
+  }
+  
+  void _onRiveInit(Artboard artboard) {
+    final controller = StateMachineController.fromArtboard(
+      artboard, 
+      'State Machine 1',
+    );
+    
+    if (controller != null) {
+      artboard.addController(controller);
+      _riveController = controller;
+      _triggerSuccess = controller.findInput<bool>('Trigger') as SMITrigger;
+    }
+  }
+  
+  void _navigateWithAnimation(Widget screen) {
+    // Trigger Rive animation
+    _triggerSuccess?.fire();
+    
+    // Navigate after a short delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        Navigator.push(
+          context, 
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => screen,
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              var begin = const Offset(1.0, 0.0);
+              var end = Offset.zero;
+              var curve = Curves.easeOutCubic;
+              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+              
+              return SlideTransition(
+                position: animation.drive(tween),
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+      }
+    });
   }
   
   void _handleSubmitted(String text) {
@@ -78,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     
     // Scroll to bottom
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -89,7 +157,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     
     // Add bot response after a short delay
     Future.delayed(const Duration(seconds: 1), () {
-      _respondToMessage(text);
+      if (mounted) {
+        _respondToMessage(text);
+      }
     });
   }
   
@@ -106,11 +176,25 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       response = "You're welcome! The sign for 'thank you' is performed by touching your lips with your fingertips and moving your hand forward.";
       containsSignLanguage = true;
     } else if (message.contains("learn") || message.contains("teach") || message.contains("how to")) {
-      response = "I can help you learn sign language! What specific signs or phrases are you interested in practicing?";
+      response = "I can help you learn sign language! What specific signs or phrases are you interested in practicing? You can also access our Learning Path for structured lessons.";
     } else if (message.contains("practice")) {
-      response = "Great! You can use our practice feature to work on specific signs with feedback. Would you like to try that now?";
+      response = "Great! You can use our practice feature to work on specific signs with feedback. Would you like to try Character Playground now?";
     } else if (message.contains("sign for")) {
       response = "To learn that specific sign, I recommend checking our dictionary or starting a practice session focusing on that category.";
+    } else if (message.contains("path") || message.contains("learning path")) {
+      response = "The Learning Path provides a structured curriculum for mastering sign language. Would you like to go there now?";
+      if (mounted) {
+        setState(() {
+          _showOptions = true;
+        });
+      }
+    } else if (message.contains("character") || message.contains("playground")) {
+      response = "The Character Playground helps you practice individual sign language characters. Would you like to try it now?";
+      if (mounted) {
+        setState(() {
+          _showOptions = true;
+        });
+      }
     } else {
       response = "I'm here to help you with sign language! You can ask me about specific signs, how to practice, or general questions about sign language.";
     }
@@ -122,16 +206,18 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       containsSignLanguage: containsSignLanguage,
     );
     
-    setState(() {
-      _messages.add(botMessage);
-      if (containsSignLanguage) {
-        _showSignLanguageOption = true;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _messages.add(botMessage);
+        if (containsSignLanguage) {
+          _showSignLanguageOption = true;
+        }
+      });
+    }
     
     // Scroll to bottom again after adding the response
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -157,7 +243,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     
     // Scroll to bottom
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -168,7 +254,64 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     
     // Add bot response
     Future.delayed(const Duration(seconds: 1), () {
-      _respondToMessage(sign);
+      if (mounted) {
+        _respondToMessage(sign);
+      }
+    });
+  }
+
+  Future<void> _sendMessage() async {
+    if (_textController.text.trim().isEmpty) return;
+
+    final message = _textController.text;
+    _textController.clear();
+
+    if (!mounted) return;
+    
+    setState(() {
+      _messages.add(ChatMessage(
+        text: message,
+        isUser: true,
+        time: DateTime.now(),
+      ));
+      _showSignLanguageOption = false;
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _geminiService.generateResponse(message);
+      if (!mounted) return;
+      
+      setState(() {
+        _messages.add(ChatMessage(
+          text: response,
+          isUser: false,
+          time: DateTime.now(),
+        ));
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _messages.add(ChatMessage(
+          text: 'Sorry, I encountered an error. Please try again.',
+          isUser: false,
+          time: DateTime.now(),
+        ));
+        _isLoading = false;
+      });
+    }
+    
+    // Scroll to bottom after adding messages
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
@@ -178,328 +321,271 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final topPadding = mediaQuery.padding.top;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
+    final viewInsets = MediaQuery.of(context).viewInsets;
+    final bottomPadding = viewInsets.bottom > 0 ? 0.0 : 40.0;
     
-    return Container(
-      color: RiveAppTheme.getBackgroundColor(isDarkMode),
-      child: Column(
+    return Scaffold(
+      backgroundColor: RiveAppTheme.getBackgroundColor(isDarkMode),
+      body: Stack(
         children: [
-          SizedBox(height: topPadding + 60),
+          // Background Rive animation
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.05,
+              child: RiveAnimation.asset(
+                app_assets.shapesRiv,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
           
-          // Title with sign detection toggle
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          SafeArea(
+            child: Column(
               children: [
-                const Spacer(),
-                Text(
-                  'Sign Language Assistant',
-                  style: TextStyle(
-                    fontSize: 20, 
-                    fontWeight: FontWeight.bold,
-                    color: RiveAppTheme.getTextColor(isDarkMode),
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: Icon(
-                    _isSignDetectionActive ? Icons.sign_language : Icons.sign_language_outlined,
-                    color: _isSignDetectionActive ? RiveAppTheme.accentColor : RiveAppTheme.getTextSecondaryColor(isDarkMode),
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isSignDetectionActive = !_isSignDetectionActive;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          
-          // Status indicator
-          Container(
-            margin: const EdgeInsets.fromLTRB(0, 12, 0, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: isDarkMode 
-                  ? Colors.green.withOpacity(0.15)
-                  : Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDarkMode
-                    ? Colors.green.withOpacity(0.3)
-                    : Colors.transparent,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.green[400] : Colors.green[700],
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    color: isDarkMode ? Colors.green[400] : Colors.green[700],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Sign detection camera
-          if (_isSignDetectionActive)
-            Container(
-              height: 200,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: SignCamera(
-                onSignDetected: _handleSignDetected,
-                showPreview: true,
-              ),
-            ),
-          
-          // Date indicator
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: isDarkMode 
-                  ? Colors.grey.withOpacity(0.15)
-                  : Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDarkMode
-                    ? Colors.grey.withOpacity(0.2)
-                    : Colors.transparent,
-              ),
-            ),
-            child: Text(
-              'Today',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-              ),
-            ),
-          ),
-          
-          // Chat messages
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageItem(message, index, themeProvider);
-              },
-            ),
-          ),
-          
-          // Sign language visualization card
-          if (_showSignLanguageOption)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDarkMode 
-                    ? RiveAppTheme.accentColor.withOpacity(0.15)
-                    : RiveAppTheme.accentColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDarkMode
-                      ? RiveAppTheme.accentColor.withOpacity(0.4)
-                      : RiveAppTheme.accentColor.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? RiveAppTheme.accentColor.withOpacity(0.3)
-                          : RiveAppTheme.accentColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.sign_language,
-                      color: isDarkMode ? Colors.white : RiveAppTheme.accentColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Watch Sign Demonstration',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: RiveAppTheme.getTextColor(isDarkMode),
-                          ),
+                // Title with sign detection toggle
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 60, 16, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: RiveAppTheme.getTextColor(isDarkMode),
                         ),
-                        Text(
-                          'See how this sign is performed',
-                          style: TextStyle(
-                            color: isDarkMode 
-                                ? Colors.grey[400]
-                                : Colors.black54,
-                            fontSize: 12,
-                          ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      Text(
+                        'Sign Language Assistant',
+                        style: TextStyle(
+                          fontSize: 20, 
+                          fontWeight: FontWeight.bold,
+                          color: RiveAppTheme.getTextColor(isDarkMode),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _isSignDetectionActive ? Icons.sign_language : Icons.sign_language_outlined,
+                          color: _isSignDetectionActive ? RiveAppTheme.accentColor : RiveAppTheme.getTextSecondaryColor(isDarkMode),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _isSignDetectionActive = !_isSignDetectionActive;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Status indicator
+                Container(
+                  margin: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDarkMode 
+                        ? Colors.green.withOpacity(0.15)
+                        : Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDarkMode
+                          ? Colors.green.withOpacity(0.3)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? Colors.green[400] : Colors.green[700],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Online',
+                        style: TextStyle(
+                          color: isDarkMode ? Colors.green[400] : Colors.green[700],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                
+                // Navigation options
+                if (_showOptions)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildNavButton(
+                          'Learning Path',
+                          FontAwesomeIcons.road,
+                          Colors.green,
+                          () => _navigateWithAnimation(const LearningPathScreen()),
+                        ),
+                        _buildNavButton(
+                          'Playground',
+                          FontAwesomeIcons.gamepad,
+                          Colors.orange,
+                          () => _navigateWithAnimation(const CharacterPlaygroundScreen()),
                         ),
                       ],
                     ),
                   ),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.play_arrow, size: 16),
-                    label: const Text('Watch'),
-                    onPressed: () {
-                      // Would open sign language video
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: RiveAppTheme.accentColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      textStyle: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          
-          // Message input
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-            decoration: BoxDecoration(
-              color: isDarkMode ? RiveAppTheme.cardDark : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: isDarkMode
-                  ? Border.all(color: Colors.white10)
-                  : null,
-              boxShadow: [
-                BoxShadow(
-                  color: isDarkMode 
-                      ? Colors.black.withOpacity(0.2)
-                      : Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Voice input button
-                Material(
-                  color: Colors.transparent,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.mic,
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      // Voice input functionality
-                    },
-                  ),
-                ),
                 
-                // Text input field
+                // Sign detection camera
+                if (_isSignDetectionActive)
+                  Container(
+                    height: 200,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SignCamera(
+                      onSignDetected: _handleSignDetected,
+                      showPreview: true,
+                    ),
+                  ),
+                
+                // Chat messages
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: TextField(
-                      controller: _textController,
-                      decoration: InputDecoration(
-                        hintText: 'Type your message...',
-                        hintStyle: TextStyle(
-                          color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        isDense: true,
-                      ),
-                      style: TextStyle(
-                        color: RiveAppTheme.getTextColor(isDarkMode),
-                      ),
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.sentences,
-                      minLines: 1,
-                      maxLines: 5,
-                    ),
-                  ),
-                ),
-                
-                // Attachment button
-                Material(
-                  color: Colors.transparent,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.image_outlined,
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      // Image attachment functionality
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return _buildMessageItem(_messages[index], index, themeProvider);
                     },
                   ),
                 ),
                 
-                // Camera button
-                Material(
-                  color: Colors.transparent,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.camera_alt_outlined,
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      // Camera functionality
-                    },
+                // Message input
+                Container(
+                  margin: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? RiveAppTheme.cardDark : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: isDarkMode
+                        ? Border.all(color: Colors.white10)
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDarkMode 
+                            ? Colors.black.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                ),
-                
-                // Send button
-                Padding(
-                  padding: const EdgeInsets.only(right: 4, bottom: 4),
-                  child: Material(
-                    color: RiveAppTheme.accentColor,
-                    borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => _handleSubmitted(_textController.text),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.send_rounded,
-                          color: Colors.white,
-                          size: 20,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Voice input button
+                      Material(
+                        color: Colors.transparent,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.mic,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                            size: 22,
+                          ),
+                          onPressed: () {
+                            // Voice input functionality
+                          },
                         ),
                       ),
-                    ),
+                      
+                      // Text input field
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8,),
+                          child: TextField(
+                            controller: _textController,
+                            decoration: InputDecoration(
+                              hintText: 'Type your message...',
+                              hintStyle: TextStyle(
+                                color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                              isDense: true,
+                            ),
+                            style: TextStyle(
+                              color: RiveAppTheme.getTextColor(isDarkMode),
+                            ),
+                            keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.sentences,
+                            minLines: 1,
+                            maxLines: 5,
+                          ),
+                        ),
+                      ),
+                      
+                      // Send button
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4, bottom: 4),
+                        child: Material(
+                          color: RiveAppTheme.accentColor,
+                          borderRadius: BorderRadius.circular(20),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: _sendMessage,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.send_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavButton(String title, IconData icon, Color color, VoidCallback onTap) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: ElevatedButton.icon(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color.withOpacity(isDarkMode ? 0.8 : 0.9),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 4,
+          ),
+          icon: FaIcon(icon, size: 16),
+          label: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
       ),
     );
   }

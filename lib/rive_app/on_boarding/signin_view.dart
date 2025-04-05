@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:rive/rive.dart' hide LinearGradient;
 import 'package:flutter_samples/rive_app/theme.dart';
 import 'package:flutter_samples/rive_app/assets.dart' as app_assets;
+import 'package:flutter_samples/rive_app/services/user_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:ui';
 
@@ -19,11 +21,21 @@ class _SignInViewState extends State<SignInView> {
   final _emailController = TextEditingController();
   final _passController = TextEditingController();
 
-  late SMITrigger _successAnim;
-  late SMITrigger _errorAnim;
-  late SMITrigger _confettiAnim;
+  SMITrigger? _successAnim;
+  SMITrigger? _errorAnim;
+  SMITrigger? _confettiAnim;
 
   bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the user provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<UserProvider>(context, listen: false).initialize();
+    });
+  }
 
   @override
   void dispose() {
@@ -33,47 +45,159 @@ class _SignInViewState extends State<SignInView> {
   }
 
   void _onCheckRiveInit(Artboard artboard) {
-    final controller =
-        StateMachineController.fromArtboard(artboard, "State Machine 1");
-    artboard.addController(controller!);
-    _successAnim = controller.findInput<bool>("Check") as SMITrigger;
-    _errorAnim = controller.findInput<bool>("Error") as SMITrigger;
+    try {
+      final controller = StateMachineController.fromArtboard(artboard, "State Machine 1");
+      if (controller == null) {
+        print("Failed to find State Machine 1 in the check.riv file");
+        return;
+      }
+      
+      artboard.addController(controller);
+      
+      final check = controller.findInput<bool>("Check");
+      if (check is SMITrigger) {
+        _successAnim = check;
+      } else {
+        print("Failed to find 'Check' trigger in the animation");
+      }
+      
+      final error = controller.findInput<bool>("Error");
+      if (error is SMITrigger) {
+        _errorAnim = error;
+      } else {
+        print("Failed to find 'Error' trigger in the animation");
+      }
+    } catch (e) {
+      print("Error initializing check animation: $e");
+    }
   }
 
   void _onConfettiRiveInit(Artboard artboard) {
-    final controller =
-        StateMachineController.fromArtboard(artboard, "State Machine 1");
-    artboard.addController(controller!);
-    _confettiAnim =
-        controller.findInput<bool>("Trigger explosion") as SMITrigger;
+    try {
+      final controller = StateMachineController.fromArtboard(artboard, "State Machine 1");
+      if (controller == null) {
+        print("Failed to find State Machine 1 in the confetti.riv file");
+        return;
+      }
+      
+      artboard.addController(controller);
+      
+      final trigger = controller.findInput<bool>("Trigger explosion");
+      if (trigger is SMITrigger) {
+        _confettiAnim = trigger;
+      } else {
+        print("Failed to find 'Trigger explosion' in the animation");
+      }
+    } catch (e) {
+      print("Error initializing confetti animation: $e");
+    }
   }
 
-  void login() {
+  Future<void> login() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    bool isEmailValid = _emailController.text.trim().isNotEmpty;
-    bool isPassValid = _passController.text.trim().isNotEmpty;
-    bool isValid = isEmailValid && isPassValid;
-
-    Future.delayed(const Duration(seconds: 1), () {
-      isValid ? _successAnim.fire() : _errorAnim.fire();
-    });
-
-    Future.delayed(const Duration(seconds: 3), () {
+    final email = _emailController.text.trim();
+    final password = _passController.text.trim();
+    
+    print('Login attempt: email=$email, password=$password');
+    
+    if (email.isEmpty || password.isEmpty) {
       setState(() {
+        _errorMessage = 'Please enter both email and password';
         _isLoading = false;
       });
-      if (isValid) _confettiAnim.fire();
-    });
-
-    if (isValid) {
-      Future.delayed(const Duration(seconds: 4), () {
-        widget.closeModal!();
-        _emailController.text = "";
-        _passController.text = "";
+      
+      // Safely fire the error animation
+      try {
+        if (_errorAnim != null) {
+          print('Firing error animation for empty fields');
+          _errorAnim!.fire();
+        } else {
+          print('Error animation controller is null');
+        }
+      } catch (e) {
+        print("Error firing error animation: $e");
+      }
+      return;
+    }
+    
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      print('Calling userProvider.login');
+      final success = await userProvider.login(email, password);
+      print('Login result: $success');
+      
+      if (success) {
+        print('Authentication successful, showing success animation');
+        // Safely fire the success animation
+        try {
+          if (_successAnim != null) {
+            _successAnim!.fire();
+          } else {
+            print('Success animation controller is null');
+          }
+        } catch (e) {
+          print("Error firing success animation: $e");
+        }
+        
+        Future.delayed(const Duration(seconds: 1), () {
+          // Safely fire the confetti animation
+          print('Firing confetti animation');
+          try {
+            if (_confettiAnim != null) {
+              _confettiAnim!.fire();
+            } else {
+              print('Confetti animation controller is null');
+            }
+          } catch (e) {
+            print("Error firing confetti animation: $e");
+          }
+        });
+        
+        Future.delayed(const Duration(seconds: 2), () {
+          print('Closing modal and clearing fields');
+          widget.closeModal!();
+          _emailController.text = "";
+          _passController.text = "";
+        });
+      } else {
+        setState(() {
+          _errorMessage = userProvider.error ?? 'Invalid credentials';
+          _isLoading = false;
+        });
+        
+        print('Authentication failed: $_errorMessage');
+        // Safely fire the error animation
+        try {
+          if (_errorAnim != null) {
+            _errorAnim!.fire();
+          } else {
+            print('Error animation controller is null');
+          }
+        } catch (e) {
+          print("Error firing error animation: $e");
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
       });
+      
+      print('Exception during login: $e');
+      // Safely fire the error animation
+      try {
+        if (_errorAnim != null) {
+          _errorAnim!.fire();
+        } else {
+          print('Error animation controller is null');
+        }
+      } catch (e) {
+        print("Error firing error animation: $e");
+      }
     }
   }
 
@@ -156,7 +280,7 @@ class _SignInViewState extends State<SignInView> {
                                 ),
                                 const SizedBox(height: 16),
                                 const Text(
-                                  "Access to 240+ hours of content. Learn design and code, by building real apps with React and Swift.",
+                                  "Learn to speak a different Language it will look good in your Resume we Promise 😉",
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: "Inter",
@@ -210,6 +334,20 @@ class _SignInViewState extends State<SignInView> {
                                   controller: _passController,
                                   style: const TextStyle(fontSize: 16),
                                 ),
+
+                                // Error message
+                                if (_errorMessage != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(
+                                        color: Colors.red,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
                                 
                                 // Forgot Password Link
                                 Align(
@@ -262,22 +400,31 @@ class _SignInViewState extends State<SignInView> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
-                                    child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "Sign In",
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontFamily: "Inter",
-                                            fontWeight: FontWeight.bold,
+                                    child: _isLoading
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
                                             color: Colors.white,
+                                            strokeWidth: 2,
                                           ),
+                                        )
+                                      : const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              "Sign In",
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontFamily: "Inter",
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            SizedBox(width: 8),
+                                            Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                                          ],
                                         ),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward_rounded, color: Colors.white),
-                                      ],
-                                    ),
                                   ),
                                 ),
                                 
@@ -364,12 +511,13 @@ class _SignInViewState extends State<SignInView> {
                   // Animation overlays
                   if (_isLoading)
                     Positioned(
-                      child: SizedBox(
+                      child: Container(
                         width: 120,
                         height: 120,
                         child: RiveAnimation.asset(
                           app_assets.checkRiv,
                           onInit: _onCheckRiveInit,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),
@@ -377,14 +525,16 @@ class _SignInViewState extends State<SignInView> {
                   Positioned.fill(
                     child: IgnorePointer(
                       ignoring: true,
-                      child: SizedBox(
+                      child: Container(
                         width: 500,
                         height: 500,
+                        alignment: Alignment.center,
                         child: Transform.scale(
                           scale: 3,
                           child: RiveAnimation.asset(
                             app_assets.confettiRiv,
                             onInit: _onConfettiRiveInit,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),

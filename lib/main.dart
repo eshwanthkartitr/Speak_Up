@@ -3,6 +3,7 @@ import 'package:flutter_samples/rive_app/home.dart';
 import 'package:flutter_samples/rive_app/on_boarding/onboarding_view.dart';
 import 'package:flutter_samples/rive_app/theme_provider.dart';
 import 'package:flutter_samples/rive_app/utils/onboarding_utils.dart';
+import 'package:flutter_samples/rive_app/services/user_provider.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -22,8 +23,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           return MaterialApp(
