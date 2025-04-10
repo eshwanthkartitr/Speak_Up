@@ -19,17 +19,24 @@ class MenuRow extends StatelessWidget {
   void _onMenuIconInit(Artboard artboard) {
     final controller = StateMachineController.fromArtboard(
         artboard, menu.riveIcon.stateMachine);
-    artboard.addController(controller!);
-    menu.riveIcon.status = controller.findInput<bool>("active") as SMIBool;
+    if (controller != null) {
+      artboard.addController(controller);
+      final input = controller.findInput<bool>("active");
+      if (input != null) {
+        menu.riveIcon.status = input as SMIBool;
+      }
+    }
   }
 
   void onMenuPressed() {
     if (selectedMenu != menu.title) {
-      onMenuPress!();
-      menu.riveIcon.status!.change(true);
-      Future.delayed(const Duration(seconds: 1), () {
-        menu.riveIcon.status!.change(false);
-      });
+      onMenuPress?.call();
+      if (menu.riveIcon.status != null) {
+        menu.riveIcon.status!.change(true);
+        Future.delayed(const Duration(seconds: 1), () {
+          menu.riveIcon.status?.change(false);
+        });
+      }
     }
   }
 

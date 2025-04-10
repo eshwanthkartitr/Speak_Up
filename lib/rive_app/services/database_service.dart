@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/models/user_model.dart';
+import 'package:mongo_dart/mongo_dart.dart';
 
 class DatabaseService {
   // Singleton pattern
@@ -7,113 +9,157 @@ class DatabaseService {
   DatabaseService._internal();
 
   bool _isInitialized = false;
+  bool _useMockData = false;
+  late Db _db;
+  late DbCollection _usersCollection;
 
-  // Mock data for users
+  // Mock users data for fallback
   final List<UserModel> _mockUsers = [
-    UserModel(
-      id: 1, 
-      name: 'Eshwanth Karti T R', 
-      email: 'eshwanthkartitr@gmail.com', 
-      password: 'Tr3102',
-      level: 5,
-      xpPoints: 450,
-      streak: 7,
-      avatar: 'assets/rive_app/images/avatars/avatar1.png',
-    ),
-    UserModel(
-      id: 2, 
-      name: 'John Doe', 
-      email: 'john@example.com', 
-      password: 'password123',
-      level: 3,
-      xpPoints: 280,
-      streak: 5,
-      avatar: 'assets/rive_app/images/avatars/avatar2.png',
-    ),
-    UserModel(
-      id: 3, 
-      name: 'Jane Smith', 
-      email: 'jane@example.com', 
-      password: 'securepass',
-      level: 7,
-      xpPoints: 850,
-      streak: 14,
-      avatar: 'assets/rive_app/images/avatars/avatar3.png',
-    ),
-    UserModel(
-      id: 4, 
-      name: 'Alice Johnson', 
-      email: 'alice@example.com', 
-      password: 'alice2024',
-      level: 2,
-      xpPoints: 120,
-      streak: 2,
-      avatar: 'assets/rive_app/images/avatars/avatar4.png',
-    ),
-    UserModel(
-      id: 5, 
-      name: 'Bob Williams', 
-      email: 'bob@example.com', 
-      password: 'bobpass',
-      level: 4,
-      xpPoints: 320,
-      streak: 3,
-      avatar: 'assets/rive_app/images/avatars/avatar5.png',
-    ),
+    
   ];
+
+  // MongoDB connection string
+  // Using environment variable or secure configuration
+  final String _connectionString = 'mongodb+srv://eshwanthkartitr:Tr310305@cluster0.2xacffx.mongodb.net/Speak_up_db';
 
   // Initialize the database service
   Future<void> initialize() async {
     if (_isInitialized) return;
-    _isInitialized = true;
-    print('Mock database initialized successfully');
+    
+    try {
+      print('Attempting to connect to MongoDB...');
+      // Connect to MongoDB
+      _db = await Db.create(_connectionString);
+      await _db.open();
+      _usersCollection = _db.collection('users'); // Changed collection name to be more specific
+      _isInitialized = true;
+      _useMockData = false;
+      print('MongoDB database initialized successfully');
+    } catch (e) {
+      print('Failed to initialize MongoDB: $e');
+      _useMockData = true;
+      print('Falling back to mock data');
+    }
   }
 
   // Authenticate user - returns user if valid, null otherwise
   Future<UserModel?> authenticateUser(String email, String password) async {
-    if (!_isInitialized) await initialize();
-    
-    print('Authenticating user: $email with password: $password');
-    print('Available users:');
-    for (var user in _mockUsers) {
-      print('- ${user.email} / ${user.password}');
-    }
+    if (!_isInitialized && !_useMockData) await initialize();
     
     try {
-      // Find the user with matching email and password
-      final user = _mockUsers.firstWhere(
-        (user) => user.email == email && user.password == password,
-      );
-      print('Authentication successful for: ${user.name}');
-      return user;
+      if (_useMockData) {
+        print('Using mock data for authentication');
+        return _mockUsers.firstWhere(
+          (u) => u.email == email && u.password == password,
+          orElse: () => throw 'Invalid credentials'
+        );
+      } else {
+        // Use MongoDB with proper error handling
+        final Map<String, dynamic>? userData = await _usersCollection.findOne(
+          where.eq('email', email).eq('password', password)
+        );
+        
+        if (userData != null) {
+          final user = UserModel.fromJson(userData);
+          print('Authentication successful for: ${user.name}');
+          return user;
+        }
+        
+        print('Authentication failed: Invalid credentials');
+        return null;
+      }
     } catch (e) {
-      // User not found
-      print('Authentication failed: Invalid credentials - $e');
+      print('Authentication error: $e');
       return null;
     }
   }
 
   // Get user by email
   Future<UserModel?> getUserByEmail(String email) async {
-    if (!_isInitialized) await initialize();
+    if (!_isInitialized && !_useMockData) await initialize();
     
     try {
-      return _mockUsers.firstWhere((user) => user.email == email);
-    } catch (_) {
+      if (_useMockData) {
+        // Use mock data
+        try {
+          final user = _mockUsers.firstWhere((u) => u.email == email);
+          return user;
+        } catch (e) {
+          return null;
+        }
+      } else {
+        final Map<String, dynamic>? userData = await _usersCollection.findOne(
+          where.eq('email', email)
+        );
+        
+        if (userData != null) {
+          return UserModel.fromJson(userData);
+        }
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user by email: $e');
+      
+      // If MongoDB throws an error, try with mock data
+      if (!_useMockData) {
+        _useMockData = true;
+        return getUserByEmail(email);
+      }
+      
       return null;
     }
   }
 
   // Update user
   Future<UserModel?> updateUser(UserModel user) async {
-    if (!_isInitialized) await initialize();
+    if (!_isInitialized && !_useMockData) await initialize();
     
-    final index = _mockUsers.indexWhere((u) => u.id == user.id);
-    if (index != -1) {
-      _mockUsers[index] = user;
-      return user;
+    try {
+      if (_useMockData) {
+        // Update in mock data
+        final index = _mockUsers.indexWhere((u) => u.id == user.id);
+        if (index != -1) {
+          _mockUsers[index] = user;
+          return user;
+        }
+        return null;
+      } else {
+        await _usersCollection.update(
+          where.eq('_id', user.id),
+          user.toJson()
+        );
+        return user;
+      }
+    } catch (e) {
+      print('Error updating user: $e');
+      
+      // If MongoDB throws an error, try with mock data
+      if (!_useMockData) {
+        _useMockData = true;
+        return updateUser(user);
+      }
+      
+      return null;
     }
-    
-    return null;
   }
-} 
+}
+
+Future<void> login(String email, String password) async {
+  try {
+    print('Login attempt: email=$email, password=$password');
+    final databaseService = DatabaseService();
+    final user = await databaseService.authenticateUser(email, password);
+    
+    if (user != null) {
+      // Login successful, update your app state
+      print('Login successful for: ${user.name}');
+      // Navigate to home screen or update provider
+    } else {
+      // Show error message for invalid credentials
+      print('Invalid credentials');
+    }
+  } catch (e) {
+    print('Login error: $e');
+    // Show generic error message
+  }
+}

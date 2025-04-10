@@ -37,12 +37,12 @@ class SignModelProcessor {
       
       // Copy model from assets to a location where it can be loaded from
       final appDir = await getApplicationDocumentsDirectory();
-      final modelPath = '${appDir.path}/mobilenetv3_best.pth';
+      final modelPath = '${appDir.path}/mobilenetv3_simple.tflite';
       
       // Check if model exists, if not, copy it
       final modelFile = File(modelPath);
       if (!modelFile.existsSync()) {
-        final ByteData data = await rootBundle.load('assets/models/mobilenetv3_best.pth');
+        final ByteData data = await rootBundle.load('assets/models/mobilenetv3_simple.tflite');
         final Uint8List bytes = data.buffer.asUint8List();
         await modelFile.writeAsBytes(bytes);
       }

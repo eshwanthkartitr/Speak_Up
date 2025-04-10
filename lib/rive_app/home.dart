@@ -17,6 +17,7 @@ import 'package:flutter_samples/rive_app/screens/search_screen.dart';
 import 'package:flutter_samples/rive_app/screens/practice_screen.dart';
 import 'package:flutter_samples/rive_app/screens/notifications_screen.dart';
 import 'package:flutter_samples/rive_app/screens/profile_screen.dart';
+import 'package:flutter_samples/rive_app/screens/analytics_dashboard_screen.dart';
 
 // Common Tab Scene for the tabs other than 1st one, showing only tab name in center
 Widget commonTabScene(String tabName, bool isDarkMode) {
@@ -122,12 +123,12 @@ class _RiveAppHomeState extends State<RiveAppHome>
     // Use easeInOut curve for smoother animations instead of linear
     _sidebarAnim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
       parent: _animationController!,
-      curve: Curves.easeInOutCubic,  // Smoother curve
+      curve: Curves.easeInOutCubic,  
     ));
 
     _onBoardingAnim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
       parent: _onBoardingAnimController!,
-      curve: Curves.easeInOutCubic,  // Smoother curve
+      curve: Curves.easeInOutCubic,
     ));
 
     // Initialize screens
@@ -137,7 +138,8 @@ class _RiveAppHomeState extends State<RiveAppHome>
       const SearchScreen(),       // New screen for Search
       const PracticeScreen(),     // New screen for Practice/Timer
       const NotificationsScreen(),// New screen for Notifications/Bell
-      const ProfileScreen(),      // New screen for User/Profilez
+      const ProfileScreen(),      // New screen for User/Profile
+      const AnalyticsDashboardScreen(), // New Analytics Dashboard screen
     ];
 
     super.initState();

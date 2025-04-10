@@ -1,98 +1,136 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_samples/rive_app/models/user_model.dart';
 import 'package:flutter_samples/rive_app/services/database_service.dart';
+import 'package:flutter_samples/rive_app/services/session_manager.dart';
 
 class UserProvider with ChangeNotifier {
-  final DatabaseService _databaseService = DatabaseService();
-  
   UserModel? _currentUser;
-  bool _isLoading = false;
+  bool _isAuthenticated = false;
   String? _error;
+  final DatabaseService _databaseService = DatabaseService();
+  final SessionManager _sessionManager = SessionManager();
 
-  UserModel? get currentUser => _currentUser;
-  bool get isLoading => _isLoading;
-  bool get isAuthenticated => _currentUser != null;
+  // Getter for error
   String? get error => _error;
 
-  // Initialize the database service
-  Future<void> initialize() async {
-    await _databaseService.initialize();
+  UserProvider() {
+    // Initialize session monitoring
+    _sessionManager.initialize();
+    
+    // Try to auto-login using saved credentials
+    autoLogin();
   }
 
-  // Login with email and password
-  Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    _error = null;
+  // Initialize method
+  Future<void> initialize() async {
+    await autoLogin();
     notifyListeners();
+  }
 
+  // Getter for current user
+  UserModel? get currentUser => _currentUser;
+  
+  // Getter for authentication status
+  bool get isAuthenticated => _isAuthenticated;
+
+  // Auto-login using saved credentials
+  Future<bool> autoLogin() async {
     try {
+      // Check if session is still valid
+      final isSessionValid = await _sessionManager.checkSessionValidity();
+      
+      // If session is valid, try to get saved credentials
+      if (isSessionValid) {
+        final credentials = await _sessionManager.getSavedCredentials();
+        final email = credentials['email'];
+        final password = credentials['password'];
+        
+        // If we have credentials, try to log in
+        if (email != null && password != null) {
+          final success = await login(email, password, rememberMe: false);
+          return success;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('Auto-login failed: $e');
+      return false;
+    }
+  }
+
+  // Login method
+  Future<bool> login(String email, String password, {bool rememberMe = true}) async {
+    try {
+      print('Calling databaseService.authenticateUser');
       final user = await _databaseService.authenticateUser(email, password);
       
       if (user != null) {
         _currentUser = user;
-        _isLoading = false;
-        _error = null;
+        _isAuthenticated = true;
+        
+        // Record activity to start the session
+        await _sessionManager.recordActivity();
+        
+        // Save credentials if rememberMe is true
+        if (rememberMe) {
+          await _sessionManager.saveCredentials(email, password);
+        }
+        
         notifyListeners();
+        print('Login result: true');
         return true;
       } else {
-        _isLoading = false;
-        _error = 'Invalid email or password';
+        _isAuthenticated = false;
         notifyListeners();
+        print('Login result: false');
         return false;
       }
     } catch (e) {
-      _isLoading = false;
-      _error = e.toString();
+      print('Login error: $e');
+      _isAuthenticated = false;
       notifyListeners();
       return false;
     }
   }
 
-  // Logout current user
-  void logout() {
+  // Logout method
+  Future<void> logout({bool clearCredentials = true}) async {
     _currentUser = null;
-    _error = null;
-    notifyListeners();
-  }
-
-  // Update user stats
-  Future<void> updateUserStats({int? level, int? xpPoints, int? streak}) async {
-    if (_currentUser == null) return;
-
-    final updatedUser = _currentUser!.copyWith(
-      level: level ?? _currentUser!.level,
-      xpPoints: xpPoints ?? _currentUser!.xpPoints,
-      streak: streak ?? _currentUser!.streak,
-    );
-
-    final result = await _databaseService.updateUser(updatedUser);
+    _isAuthenticated = false;
     
-    if (result != null) {
-      _currentUser = result;
-      notifyListeners();
+    // If we should clear credentials (explicit logout)
+    if (clearCredentials) {
+      await _sessionManager.clearCredentials();
+    } else {
+      // Just clear the session but keep credentials for auto-login
+      await _sessionManager.clearSession();
     }
+    
+    notifyListeners();
   }
 
-  // Get user information
-  Future<void> fetchUserInfo(String email) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+  // Record user activity - call this in key parts of the app
+  Future<void> recordActivity() async {
+    if (_isAuthenticated) {
+      await _sessionManager.recordActivity();
+    }
+  }
+  
+  // Update user profile
+  Future<bool> updateUserProfile(UserModel updatedUser) async {
     try {
-      final user = await _databaseService.getUserByEmail(email);
+      final result = await _databaseService.updateUser(updatedUser);
       
-      if (user != null) {
-        _currentUser = user;
-        _error = null;
-      } else {
-        _error = 'User not found';
+      if (result != null) {
+        _currentUser = result;
+        notifyListeners();
+        return true;
       }
+      
+      return false;
     } catch (e) {
-      _error = e.toString();
+      print('Update profile error: $e');
+      return false;
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
-} 
+}

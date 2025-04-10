@@ -6,12 +6,14 @@ import 'package:flutter_samples/rive_app/components/menu_row.dart';
 import 'package:flutter_samples/rive_app/models/menu_item.dart';
 import 'package:flutter_samples/rive_app/models/user_model.dart';
 import 'package:flutter_samples/rive_app/services/user_provider.dart';
+import 'package:flutter_samples/rive_app/services/session_manager.dart';
 import 'package:flutter_samples/rive_app/screens/profile_screen.dart';
 import 'package:flutter_samples/rive_app/screens/search_screen.dart';
 import 'package:flutter_samples/rive_app/screens/practice_screen.dart';
 import 'package:flutter_samples/rive_app/screens/chat_screen.dart';
 import 'package:flutter_samples/rive_app/screens/learning_path_screen.dart';
 import 'package:flutter_samples/rive_app/screens/notifications_screen.dart';
+import 'package:flutter_samples/rive_app/screens/analytics_dashboard_screen.dart';
 import 'package:flutter_samples/rive_app/theme.dart';
 import 'package:flutter_samples/rive_app/theme_provider.dart';
 import 'package:flutter_samples/rive_app/assets.dart' as app_assets;
@@ -30,6 +32,41 @@ class _SideMenuState extends State<SideMenu> {
   final List<MenuItemModel> _themeMenuIcon = MenuItemModel.menuItems3;
   String _selectedMenu = MenuItemModel.menuItems[0].title;
 
+  @override
+  void initState() {
+    super.initState();
+    // Check session validity when menu is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSessionValidity();
+    });
+  }
+
+  void _checkSessionValidity() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    
+    // If user is authenticated, check if session is still valid
+    if (userProvider.isAuthenticated) {
+      final sessionManager = SessionManager();
+      final isSessionValid = await sessionManager.checkSessionValidity();
+      
+      if (!isSessionValid) {
+        // Session expired - show message and logout
+        userProvider.logout(clearCredentials: false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your session has expired. Please log in again.'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleSignOut() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    userProvider.logout(clearCredentials: true); // Clear credentials on explicit logout
+  }
+
   void onThemeRiveIconInit(artboard) {
     final controller = StateMachineController.fromArtboard(
         artboard, _themeMenuIcon[0].riveIcon.stateMachine);
@@ -45,12 +82,8 @@ class _SideMenuState extends State<SideMenu> {
     
     // Close the sidebar when Home is selected
     if (menu.title == "Home") {
-      // Close the menu if it's open
-      final homeScreen = Navigator.of(context).widget;
-      if (homeScreen is Navigator) {
-        // Pop until we reach the home screen
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
+      // Pop until we reach the home screen
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
     else if (menu.title == "Profile") {
       Navigator.push(
@@ -82,23 +115,27 @@ class _SideMenuState extends State<SideMenu> {
         MaterialPageRoute(builder: (context) => const LearningPathScreen()),
       );
     }
-    else if (menu.title == "Notification") {
+    else if (menu.title == "Notifications") {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const NotificationsScreen()),
       );
     }
+    else if (menu.title == "Analytics") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AnalyticsDashboardScreen()),
+      );
+    }
   }
 
-  void onThemeToggle(value) {
+  void onThemeToggle(bool value) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     themeProvider.setDarkMode(value);
-    _themeMenuIcon[0].riveIcon.status!.change(value);
-  }
-
-  void _handleSignOut() {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    userProvider.logout();
+    // Safely update the Rive icon status if it exists
+    if (_themeMenuIcon.isNotEmpty && _themeMenuIcon[0].riveIcon.status != null) {
+      _themeMenuIcon[0].riveIcon.status!.change(value);
+    }
   }
 
   @override
@@ -334,7 +371,7 @@ class MenuButtonSection extends StatelessWidget {
       children: [
         Padding(
           padding:
-              const EdgeInsets.only(left: 24, right: 24, top: 10, bottom: 8),
+              const EdgeInsets.only(left: 24, right: 24, top: 0, bottom: 8),
           child: Text(
             title,
             style: TextStyle(

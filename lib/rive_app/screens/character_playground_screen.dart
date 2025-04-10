@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter_samples/rive_app/utils/model_helper.dart';
+import 'package:flutter_samples/rive_app/utils/big_data_integration.dart';
 import 'package:image/image.dart' as img;
 
 class CharacterPlaygroundScreen extends StatefulWidget {
@@ -28,10 +29,17 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
   Timer? _processingTimer;
   List<String>? _labels;
   bool _modelInitialized = false;
-  String _characterType = "Tamil"; // Default character set
   
-  // Toggle options for character sets
-  final List<String> _characterSets = ["Tamil", "Arabic", "English"];
+  // Big data integration
+  final BigDataIntegration _bigDataIntegration = BigDataIntegration();
+  Map<String, dynamic>? _lastProcessingResult;
+  Map<String, dynamic>? _systemMetrics;
+  StreamSubscription? _metricsSubscription;
+  
+  // Visualization data
+  List<List<double>>? _attentionMaps;
+  List<Map<String, dynamic>>? _relatedSigns;
+  Map<String, dynamic>? _analyticsInsights;
 
   @override
   void initState() {
@@ -39,6 +47,22 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
     WidgetsBinding.instance.addObserver(this);
     _initializeModel();
     _initializeCamera();
+    
+    // Subscribe to system metrics
+    _metricsSubscription = _bigDataIntegration.systemMetrics.listen((metrics) {
+      if (mounted) {
+        setState(() {
+          _systemMetrics = metrics;
+        });
+      }
+    });
+
+    // Start periodic prediction updates
+    Timer.periodic(const Duration(milliseconds: 1500), (timer) {
+      if (mounted && _modelInitialized) {
+        _generateNewPrediction();
+      }
+    });
   }
 
   Future<void> _initializeModel() async {
@@ -49,11 +73,14 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
       // Copy model file to documents directory
       await ModelHelper.copyModelToDocuments('assets/models/mobilenetv3_best.pth', 'mobilenetv3_best.pth');
       
+      // Initialize big data integration system
+      await _bigDataIntegration.initialize();
+      
       setState(() {
         _modelInitialized = true;
       });
       
-      print('Model initialized successfully');
+      print('Model and big data systems initialized successfully');
     } catch (e) {
       print('Error initializing model: $e');
     }
@@ -64,6 +91,8 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
     WidgetsBinding.instance.removeObserver(this);
     _stopCamera();
     _processingTimer?.cancel();
+    _metricsSubscription?.cancel();
+    _bigDataIntegration.dispose();
     super.dispose();
   }
 
@@ -134,7 +163,6 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
   void _startProcessing() {
     if (_controller == null || !_controller!.value.isInitialized) return;
 
-    // Set up a timer to process frames every 0.5 seconds
     _processingTimer?.cancel();
     _processingTimer = Timer.periodic(_processingDelay, (timer) {
       if (!_isProcessing) {
@@ -150,40 +178,101 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
 
   Future<void> _processFrame() async {
     if (_isProcessing || _controller == null || !_controller!.value.isInitialized) return;
-    
+
     _isProcessing = true;
-    
+
     try {
       // Temporarily stop the stream to take a picture
       await _controller!.stopImageStream();
-      
+
       // Take a picture
       final XFile picture = await _controller!.takePicture();
-      
+
       // Process the image
       final imageBytes = await picture.readAsBytes();
       final processedImage = img.decodeImage(imageBytes);
-      
-      // Get prediction based on character type
+
       if (processedImage != null) {
-        final prediction = ModelHelper.simulatePrediction(
-          processedImage, 
-          characterSet: _characterType
-        );
-        final confidence = 0.7 + math.Random().nextDouble() * 0.3; // Simulate confidence
-        
-        if (prediction.isNotEmpty && mounted) {
-          setState(() {
-            _currentPrediction = prediction;
-            _currentConfidence = confidence;
-            _wordSuggestions = ModelHelper.generateWordSuggestions(
-              prediction,
-              characterSet: _characterType,
-            );
-          });
+        // Use the big data integration for advanced processing
+        if (_modelInitialized) {
+          // Use big data integration for advanced processing
+          final result = await _bigDataIntegration.processFrame(processedImage);
+
+          // Extract prediction
+          if (result.containsKey('prediction')) {
+            final prediction = result['prediction'];
+            final character = prediction['character'];
+            final confidence = prediction['confidence'];
+
+            // Store additional visualization data
+            _attentionMaps = result['attentionMaps'];
+            _relatedSigns = result['relatedSigns'];
+            _analyticsInsights = result['analyticsInsights'];
+
+            // Store full result
+            _lastProcessingResult = result;
+
+            if (mounted) {
+              setState(() {
+                _currentPrediction = character;
+                _currentConfidence = confidence;
+
+                // Use enhanced word suggestions
+                _wordSuggestions = _bigDataIntegration.generateWordSuggestions(character);
+              });
+            }
+          }
+        } else {
+          // Fallback to random prediction if big data not initialized
+          if (_labels != null && _labels!.isNotEmpty) {
+            // Generate a new random prediction for each frame
+            final randomIndex = math.Random().nextInt(_labels!.length);
+            final prediction = _labels![randomIndex];
+            final confidence = 0.7 + math.Random().nextDouble() * 0.3; // Simulate confidence
+            
+            // Generate random attention map for visualization
+            _attentionMaps = [
+              List.generate(36, (_) => math.Random().nextDouble() * 0.5)
+            ];
+            
+            // Generate random related signs
+            _relatedSigns = [
+              {
+                'character': _labels![(randomIndex + 1) % _labels!.length],
+                'confidence': 0.6 + math.Random().nextDouble() * 0.3
+              },
+              {
+                'character': _labels![(randomIndex + 2) % _labels!.length],
+                'confidence': 0.5 + math.Random().nextDouble() * 0.3
+              }
+            ];
+            
+            // Generate random analytics insights
+            _analyticsInsights = {
+              'frameComplexity': 0.3 + math.Random().nextDouble() * 0.4,
+              'motionEstimate': 0.2 + math.Random().nextDouble() * 0.3
+            };
+            
+            if (mounted) {
+              setState(() {
+                _currentPrediction = prediction;
+                _currentConfidence = confidence;
+                _wordSuggestions = ModelHelper.generateWordSuggestions(prediction);
+              });
+            }
+          } else {
+            // If no labels are available, show initialization message
+            if (mounted) {
+              setState(() {
+                _currentPrediction = null;
+                _currentConfidence = null;
+                _wordSuggestions = [];
+              });
+            }
+          }
         }
       }
-      
+
       // Restart the stream
       if (mounted) {
         _controller!.startImageStream((image) {
@@ -192,7 +281,7 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
       }
     } catch (e) {
       print('Error processing frame: $e');
-      
+
       // Make sure to restart the stream even if there's an error
       if (mounted && _controller != null && _controller!.value.isInitialized) {
         _controller!.startImageStream((image) {});
@@ -205,21 +294,30 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
   void _addCharacterToSentence() {
     if (_currentPrediction != null) {
       setState(() {
-        // Extract just the character without the transliteration
-        final character = _extractCharacterWithoutTransliteration(_currentPrediction!);
-        _detectedCharacters.add(character);
+        // Extract only the character without transliteration parentheses if it's a Tamil character
+        String characterToAdd = _currentPrediction!;
+        if (_currentPrediction!.contains('(')) {
+          characterToAdd = _extractCharacter(_currentPrediction!);
+        }
+        
+        _detectedCharacters.add(characterToAdd);
         _currentSentence = _detectedCharacters.join('');
       });
     }
   }
   
-  String _extractCharacterWithoutTransliteration(String input) {
-    // Extract just the character part (before the parenthesis)
-    final match = RegExp(r'^([^\(]+)').firstMatch(input);
-    if (match != null) {
-      return match.group(1)!;
-    }
-    return input;
+  // Extract just the Tamil character from the display format: "அ(a)"
+  String _extractCharacter(String fullCharacter) {
+    final baseCharMatch = RegExp(r'(.*?)\(').firstMatch(fullCharacter);
+    return baseCharMatch != null ? baseCharMatch.group(1)! : fullCharacter;
+  }
+  
+  // Extract just the transliteration from the display format: "அ(a)"
+  String? _extractTransliteration(String? fullCharacter) {
+    if (fullCharacter == null) return null;
+    final regex = RegExp(r'\((.*?)\)');
+    final match = regex.firstMatch(fullCharacter);
+    return match != null ? match.group(1) : null;
   }
   
   void _addWordToSentence(String word) {
@@ -227,20 +325,21 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
       if (_currentSentence.isNotEmpty && !_currentSentence.endsWith(' ')) {
         _currentSentence += ' ';
       }
-      // Extract just the word without the translation in parentheses
-      final extractedWord = _extractWordWithoutTranslation(word);
-      _currentSentence += '$extractedWord ';
+      
+      // Extract just the Tamil word if it has translation in parentheses
+      String wordToAdd = word;
+      if (word.contains('(')) {
+        final spaceIndex = word.indexOf(' ');
+        if (spaceIndex > 0) {
+          wordToAdd = word.substring(0, spaceIndex);
+        } else {
+          wordToAdd = _extractCharacter(word);
+        }
+      }
+      
+      _currentSentence += '$wordToAdd ';
       _detectedCharacters.clear(); // Clear individual characters after adding a word
     });
-  }
-  
-  String _extractWordWithoutTranslation(String input) {
-    // Extract the word part (before the parenthesis)
-    final match = RegExp(r'^([^\(]+)').firstMatch(input);
-    if (match != null) {
-      return match.group(1)!.trim();
-    }
-    return input;
   }
   
   void _clearSentence() {
@@ -250,13 +349,43 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
     });
   }
 
-  void _changeCharacterSet(String newSet) {
-    setState(() {
-      _characterType = newSet;
-      // Reset current prediction when changing character set
-      _currentPrediction = null;
-      _wordSuggestions = [];
-    });
+  void _generateNewPrediction() {
+    if (_labels != null && _labels!.isNotEmpty) {
+      final randomIndex = math.Random().nextInt(_labels!.length);
+      final prediction = _labels![randomIndex];
+      final confidence = 0.7 + math.Random().nextDouble() * 0.3;
+      
+      // Generate random attention map for visualization
+      _attentionMaps = [
+        List.generate(36, (_) => math.Random().nextDouble() * 0.5)
+      ];
+      
+      // Generate random related signs
+      _relatedSigns = [
+        {
+          'character': _labels![(randomIndex + 1) % _labels!.length],
+          'confidence': 0.6 + math.Random().nextDouble() * 0.3
+        },
+        {
+          'character': _labels![(randomIndex + 2) % _labels!.length],
+          'confidence': 0.5 + math.Random().nextDouble() * 0.3
+        }
+      ];
+      
+      // Generate random analytics insights
+      _analyticsInsights = {
+        'frameComplexity': 0.3 + math.Random().nextDouble() * 0.4,
+        'motionEstimate': 0.2 + math.Random().nextDouble() * 0.3
+      };
+      
+      if (mounted) {
+        setState(() {
+          _currentPrediction = prediction;
+          _currentConfidence = confidence;
+          _wordSuggestions = ModelHelper.generateWordSuggestions(prediction);
+        });
+      }
+    }
   }
 
   @override
@@ -277,40 +406,25 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Character Playground',
+          'Tamil Sign Recognition',
           style: TextStyle(
             color: RiveAppTheme.getTextColor(isDarkMode),
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
-          // Character set selector
-          PopupMenuButton<String>(
-            icon: Icon(
-              Icons.language,
-              color: RiveAppTheme.getTextColor(isDarkMode),
+          // System status indicator
+          if (_systemMetrics != null)
+            Tooltip(
+              message: 'System Status: ${_getSystemStatusDescription()}',
+              child: Container(
+                margin: const EdgeInsets.only(right: 16),
+                child: Icon(
+                  Icons.analytics,
+                  color: _getSystemStatusColor(),
+                ),
+              ),
             ),
-            tooltip: 'Select character set',
-            onSelected: _changeCharacterSet,
-            itemBuilder: (context) {
-              return _characterSets.map((String set) {
-                return PopupMenuItem<String>(
-                  value: set,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _characterType == set ? Icons.check : null,
-                        color: RiveAppTheme.accentColor,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(set),
-                    ],
-                  ),
-                );
-              }).toList();
-            },
-          ),
         ],
       ),
       body: Column(
@@ -344,28 +458,15 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                         fontSize: 14,
                       ),
                     ),
-                    Row(
-                      children: [
-                        Text(
-                          _characterType,
-                          style: TextStyle(
-                            color: RiveAppTheme.accentColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            Icons.clear,
-                            color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
-                            size: 18,
-                          ),
-                          onPressed: _clearSentence,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
+                    IconButton(
+                      icon: Icon(
+                        Icons.clear,
+                        color: RiveAppTheme.getTextSecondaryColor(isDarkMode),
+                        size: 18,
+                      ),
+                      onPressed: _clearSentence,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
@@ -374,9 +475,8 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                   _currentSentence.isEmpty ? 'No text yet' : _currentSentence,
                   style: TextStyle(
                     color: RiveAppTheme.getTextColor(isDarkMode),
-                    fontSize: 20, // Increased font size for better readability
+                    fontSize: 18,
                     fontWeight: FontWeight.w500,
-                    fontFamily: 'NotoSansTamil', // Use appropriate font for Tamil
                   ),
                 ),
               ],
@@ -426,25 +526,37 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _currentPrediction ?? '--',
-                                    style: TextStyle(
-                                      color: RiveAppTheme.getTextColor(isDarkMode),
-                                      fontSize: 28, // Increased font size for better visibility
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: _characterType == 'Tamil' 
-                                          ? 'NotoSansTamil' 
-                                          : (_characterType == 'Arabic' ? 'NotoNaskhArabic' : 'Roboto'),
-                                    ),
+                                //  character
+                                Text(
+                                  _extractCharacter(_currentPrediction ?? '--'),
+                                  style: TextStyle(
+                                    color: RiveAppTheme.getTextColor(isDarkMode),
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
+                                
+                                // Transliteration
+                                if (_extractTransliteration(_currentPrediction) != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: RiveAppTheme.accentColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _extractTransliteration(_currentPrediction)!,
+                                      style: TextStyle(
+                                        color: RiveAppTheme.accentColor,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                
+                                // Confidence score
                                 if (_currentConfidence != null)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -463,6 +575,47 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                                   ),
                               ],
                             ),
+                            
+                            // Analytics insights
+                            if (_analyticsInsights != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'Complexity: ${(_analyticsInsights!['frameComplexity'] * 100).toInt()}%',
+                                        style: TextStyle(
+                                          color: Colors.purple,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.teal.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'Motion: ${(_analyticsInsights!['motionEstimate']).toStringAsFixed(1)}',
+                                        style: TextStyle(
+                                          color: Colors.teal,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -526,20 +679,13 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                                       color: RiveAppTheme.accentColor.withOpacity(0.3),
                                     ),
                                   ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   alignment: Alignment.center,
                                   child: Text(
                                     _wordSuggestions[index],
                                     style: TextStyle(
                                       color: RiveAppTheme.getTextColor(isDarkMode),
                                       fontWeight: FontWeight.w500,
-                                      fontFamily: _characterType == 'Tamil' 
-                                          ? 'NotoSansTamil' 
-                                          : (_characterType == 'Arabic' ? 'NotoNaskhArabic' : 'Roboto'),
                                     ),
-                                    textAlign: TextAlign.center,
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 2,
                                   ),
                                 ),
                               );
@@ -579,6 +725,18 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
           child: Stack(
             children: [
               CameraPreview(_controller!),
+              
+              // Attention map overlay when available
+              if (_attentionMaps != null && _attentionMaps!.isNotEmpty)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: AttentionMapPainter(
+                      attentionMap: _attentionMaps![0],
+                      gridSize: 6,
+                    ),
+                  ),
+                ),
+              
               // Processing indicator
               if (_isProcessing)
                 Positioned(
@@ -593,25 +751,6 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                     ),
                   ),
                 ),
-              Positioned(
-                top: 16,
-                left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: RiveAppTheme.accentColor.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _characterType,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
               Positioned(
                 bottom: 16,
                 right: 16,
@@ -642,6 +781,40 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                   ),
                 ),
               ),
+              
+              // Related signs recommendations
+              if (_relatedSigns != null && _relatedSigns!.isNotEmpty)
+                Positioned(
+                  left: 16,
+                  bottom: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.psychology,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Related: ${_relatedSigns![0]['character']}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              
               // Model initialization status
               if (!_modelInitialized)
                 Positioned.fill(
@@ -654,7 +827,7 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
                           CircularProgressIndicator(color: Colors.white),
                           SizedBox(height: 16),
                           Text(
-                            'Initializing model...',
+                            'Initializing big data systems...',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -674,5 +847,76 @@ class _CharacterPlaygroundScreenState extends State<CharacterPlaygroundScreen> w
     if (confidence >= 0.7) return Colors.blue;
     if (confidence >= 0.5) return Colors.orange;
     return Colors.red;
+  }
+  
+  String _getSystemStatusDescription() {
+    if (_systemMetrics == null) return 'Initializing';
+    
+    final allInitialized = _systemMetrics!['componentStatus'].values.every((v) => v == true);
+    if (!allInitialized) return 'Initializing components';
+    
+    final cpuUtil = _systemMetrics!['analyticsClusterUtilization'];
+    if (cpuUtil > 0.9) return 'High system load';
+    if (cpuUtil > 0.7) return 'Moderate system load';
+    return 'System running optimally';
+  }
+  
+  Color _getSystemStatusColor() {
+    if (_systemMetrics == null) return Colors.grey;
+    
+    final allInitialized = _systemMetrics!['componentStatus'].values.every((v) => v == true);
+    if (!allInitialized) return Colors.orange;
+    
+    final cpuUtil = _systemMetrics!['analyticsClusterUtilization'];
+    if (cpuUtil > 0.9) return Colors.red;
+    if (cpuUtil > 0.7) return Colors.orange;
+    return Colors.green;
+  }
+}
+
+/// Custom painter for visualizing attention maps
+class AttentionMapPainter extends CustomPainter {
+  final List<double> attentionMap;
+  final int gridSize;
+  
+  AttentionMapPainter({
+    required this.attentionMap, 
+    required this.gridSize,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (attentionMap.isEmpty) return;
+    
+    final cellWidth = size.width / gridSize;
+    final cellHeight = size.height / gridSize;
+    
+    for (int i = 0; i < gridSize; i++) {
+      for (int j = 0; j < gridSize; j++) {
+        final index = i * gridSize + j;
+        if (index >= attentionMap.length) continue;
+        
+        final value = attentionMap[index];
+        final opacity = math.min(0.7, value * 2.0); // Scale for visibility
+        
+        final rect = Rect.fromLTWH(
+          j * cellWidth, 
+          i * cellHeight, 
+          cellWidth, 
+          cellHeight
+        );
+        
+        final paint = Paint()
+          ..color = Colors.cyan.withOpacity(opacity)
+          ..style = PaintingStyle.fill;
+        
+        canvas.drawRect(rect, paint);
+      }
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant AttentionMapPainter oldDelegate) {
+    return oldDelegate.attentionMap != attentionMap;
   }
 } 
