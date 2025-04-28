@@ -89,4 +89,3 @@ This section provides a visual overview of the different screens available in th
 <img src="https://github.com/user-attachments/assets/84328bca-f63c-4851-a80b-431f6ea6adf9" width="400" alt="Analytics" />
 
 ---
-(Optional: Add concluding remarks or links to other sections)
