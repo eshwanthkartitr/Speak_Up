@@ -43,7 +43,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   SMITrigger? _triggerSuccess;
   
   List<ChatMessage> _messages = [];
-  final GeminiService _geminiService = GeminiService('AIzaSyCzR4C4SRdlksiEdqfeW53_4XC_FC5mBn8');
+  final GeminiService _geminiService = GeminiService('private_key');
   bool _isLoading = false;
   bool _showOptions = false;
 

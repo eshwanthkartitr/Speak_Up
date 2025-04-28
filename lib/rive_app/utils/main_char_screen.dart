@@ -25,7 +25,7 @@ class BigDataIntegration {
   // MongoDB connection
   late Db _db;
   late DbCollection _signDetectionsCollection;
-  final String _connectionString = 'mongodb+srv://eshwanthkartitr:Tr310305@cluster0.2xacffx.mongodb.net/Speak_up_db';
+  final String _connectionString = 'mongprivate_uri';
   
   // System metrics stream
   final StreamController<Map<String, dynamic>> _metricsController =

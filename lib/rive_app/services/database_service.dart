@@ -20,7 +20,7 @@ class DatabaseService {
 
   // MongoDB connection string
   // Using environment variable or secure configuration
-  final String _connectionString = 'mongodb+srv://eshwanthkartitr:Tr310305@cluster0.2xacffx.mongodb.net/Speak_up_db';
+  final String _connectionString = 'private_uri';
 
   // Initialize the database service
   Future<void> initialize() async {
