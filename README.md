@@ -31,11 +31,13 @@ This section provides a visual overview of the different screens available in th
 ---
 
 ### Login Page
+
 <img src="https://github.com/user-attachments/assets/69f105fd-cce2-4526-8712-623bbfbaac9c" width="400" alt="Login Page" />
 
 ---
 
-###Home Page
+### Home Page
+
 | Light Theme | Dark Theme |
 |-------------|------------|
 | <img src="https://github.com/user-attachments/assets/169604e0-f2ba-4a69-8d1c-a66062073520" width="350" alt="Home Page Light" /> | <img src="https://github.com/user-attachments/assets/06352cff-1395-4777-93fe-1c68a217b548" width="350" alt="Home Page Dark" /> |
